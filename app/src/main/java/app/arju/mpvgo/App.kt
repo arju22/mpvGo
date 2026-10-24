@@ -11,6 +11,7 @@ import `is`.xyz.mpv.FastThumbnails
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.android.ext.koin.androidContext
@@ -40,13 +41,24 @@ class App : Application() {
 
     FastThumbnails.initialize(this)
 
-    // Perform cache maintenance on app startup (non-blocking)
+    // mpvGo: cache maintenance stats every cached file; keep it off the startup path and run it
+    // at most once a day.
     applicationScope.launch {
+      delay(MAINTENANCE_DELAY_MS)
+      val prefs = getSharedPreferences("mpvGo_maintenance", MODE_PRIVATE)
+      val now = System.currentTimeMillis()
+      if (now - prefs.getLong("last_cache_maintenance", 0L) < MAINTENANCE_INTERVAL_MS) return@launch
       runCatching {
         metadataCache.performMaintenance()
+        prefs.edit().putLong("last_cache_maintenance", now).apply()
       }
     }
     // No full-storage media scan on launch: MediaProvider indexes new files itself on Android 11+,
-    // and the folder list's pull-to-refresh still triggers a full scan when needed.
+    // and pull-to-refresh in folder views indexes any videos MediaStore is missing.
+  }
+
+  private companion object {
+    const val MAINTENANCE_DELAY_MS = 15_000L
+    const val MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000L
   }
 }
