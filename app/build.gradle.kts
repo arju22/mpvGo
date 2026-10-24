@@ -9,6 +9,7 @@ plugins {
   alias(libs.plugins.ksp)
   alias(libs.plugins.room)
   alias(libs.plugins.aboutlibraries)
+  alias(libs.plugins.baselineprofile)
 }
 
 // mpvGo versioning: single source of truth in /version.properties (VERSION_NAME=MAJOR.MINOR.PATCH).
@@ -57,6 +58,7 @@ android {
     create("playstore") {
       dimension = "distribution"
       versionNameSuffix = "-playstore"
+      matchingFallbacks += listOf("standard")
       buildConfigField("boolean", "ENABLE_UPDATE_FEATURE", "false")
       buildConfigField("boolean", "SCOPED_STORAGE_ONLY", "true")
     }
@@ -64,6 +66,7 @@ android {
     create("fdroid") {
       dimension = "distribution"
       versionNameSuffix = "-fdroid"
+      matchingFallbacks += listOf("standard")
       buildConfigField("boolean", "ENABLE_UPDATE_FEATURE", "false")
       buildConfigField("boolean", "SCOPED_STORAGE_ONLY", "false")
     }
@@ -100,6 +103,7 @@ android {
       initWith(getByName("release"))
       signingConfig = null
       applicationIdSuffix = ".preview"
+      matchingFallbacks += listOf("release")
       versionNameSuffix = "-${getCommitCount()}"
     }
 
@@ -239,6 +243,24 @@ dependencies {
 
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
+
+  // mpvGo: Baseline Profile (AOT-compiles startup/browse paths on install)
+  implementation(libs.androidx.profileinstaller)
+  baselineProfile(project(":baselineprofile"))
+}
+
+baselineProfile {
+  mergeIntoMain = true
+  saveInSrc = true
+  automaticGenerationDuringBuild = false
+}
+
+// mpvGo: release has no signing config in the repo (CI signs); the profile/benchmark variants
+// must be installable, so sign them with the debug key.
+android.buildTypes.configureEach {
+  if (name.startsWith("nonMinified") || name.startsWith("benchmark")) {
+    signingConfig = android.signingConfigs.getByName("debug")
+  }
 }
 
 /* ---------------- Git helpers ---------------- */

@@ -34,3 +34,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "mpvGo"
 include(":app")
+include(":baselineprofile")
