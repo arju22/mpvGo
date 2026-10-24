@@ -73,12 +73,16 @@ This file is updated with every batch of changes and before every release push.
   - Cache maintenance runs at most once a day, 15 s after launch.
   - Baseline Profile + ProfileInstaller for faster startup and scrolling (GitHub/standard build).
   - Smaller APK: only English resources are kept; Compose source information removed from builds.
+- A stream or file that failed to open (or was still opening) is no longer saved with the previous
+  file's position; resume saves now wait until the file has actually loaded.
+- Empty playlists show the "0 Videos" chip.
 
 ### Not done (by decision)
 - Database destructive-migration fallback and new indices: left as-is (database upgrades are rare).
 - Remaining audit items skipped by the user, plus the exit-while-loading cleanup (tied to #540).
 
 ### Investigating
+- Two media sessions (notifications/controls) can appear for one playback.
 - Crash on mpv property calls after the player is destroyed
   ([#792](https://github.com/marlboro-advance/mpvEx/issues/792)); the known trigger was removed
   upstream, still being watched.
