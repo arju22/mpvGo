@@ -19,6 +19,8 @@ Early development. Planned on top of the mpvEx base:
 
 mpvGo uses its own application ID (`io.github.arju22.mpvgo`), so it installs alongside mpvEx.
 
+**Requirements:** Android 14 or newer, 64-bit ARM (arm64-v8a) devices only.
+
 ## Credits
 
 mpvGo is based on [mpvEx](https://github.com/marlboro-advance/mpvEx) by marlboro-advance, which in

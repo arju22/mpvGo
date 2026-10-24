@@ -16,13 +16,17 @@ android {
 
   defaultConfig {
     applicationId = "io.github.arju22.mpvgo"
-    minSdk = 26
+    minSdk = 34
     targetSdk = 36
     versionCode = 131
     versionName = "1.3.1"
 
     vectorDrawables {
       useSupportLibrary = true
+    }
+
+    ndk {
+      abiFilters += "arm64-v8a"
     }
 
     buildConfigField("String", "GIT_SHA", "\"${getCommitSha()}\"")
@@ -67,8 +71,8 @@ android {
     abi {
       isEnable = true
       reset()
-      include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-      isUniversalApk = true
+      include("arm64-v8a")
+      isUniversalApk = false
     }
   }
 
