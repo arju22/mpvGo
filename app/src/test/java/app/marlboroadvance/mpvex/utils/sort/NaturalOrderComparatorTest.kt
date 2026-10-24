@@ -41,6 +41,22 @@ class NaturalOrderComparatorTest {
   }
 
   @Test
+  fun `testing baseline case - 30 digit run sorts after Int max (#861)`() {
+    assertTrue(cmp.compare("clip 123456789012345678901234567890", "clip 2147483647") > 0)
+    val expected = listOf(
+      "clip 1", "clip 2", "clip 10", "clip 99",
+      "clip 2147483647", "clip 2147483648",
+      "clip 9223372036854775807", "clip 9223372036854775808",
+      "clip 123456789012345678901234567890",
+    )
+    // 40+ items so TimSort actually runs its merge/contract checks (it uses insertion sort below 32)
+    val many = (expected + (1..40).map { "zz filler $it" }).shuffled(Random(19))
+    val sorted = many.sortedWith(cmp)
+    assertEquals(expected, sorted.take(expected.size))
+    assertEquals((1..40).map { "zz filler $it" }, sorted.drop(expected.size))
+  }
+
+  @Test
   fun `comparator contract holds on random names`() {
     val rnd = Random(861)
     val alphabet = "ab0123456789 ._-Z\u0663\u0661"
