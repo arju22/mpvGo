@@ -22,6 +22,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -100,6 +102,8 @@ class FileSystemBrowserViewModel(
 
   // Track previous item count per path to detect if folder became empty
   private val itemCountByPath = mutableMapOf<String, Int>()
+  private var loadJob: Job? = null
+  private var playbackJob: Job? = null
 
   companion object {
     private const val TAG = "FileSystemBrowserVM"
@@ -268,7 +272,9 @@ class FileSystemBrowserViewModel(
    * Main loading logic based on Fossify's getItems() and getRegularItemsOf()
    */
   private fun loadCurrentDirectory() {
-    viewModelScope.launch(Dispatchers.IO) {
+    // mpvGo: cancel the previous load so a slow, stale folder can't overwrite the current one
+    loadJob?.cancel()
+    loadJob = viewModelScope.launch(Dispatchers.IO) {
       _isLoading.value = true
       _error.value = null
       // Don't reset the flag here - let navigation handle it
@@ -296,6 +302,7 @@ class FileSystemBrowserViewModel(
           MediaFileRepository
             .scanDirectory(getApplication(), path, showAllFileTypes = false)
             .onSuccess { items ->
+              if (!isActive) return@onSuccess
               // Get previous count for this path
               val previousCount = itemCountByPath[path] ?: 0
 
@@ -348,6 +355,7 @@ class FileSystemBrowserViewModel(
                 items
               }
 
+              if (!isActive) return@onSuccess
               _unsortedItems.value = enrichedItems
 
               // Load playback info for videos
@@ -360,11 +368,12 @@ class FileSystemBrowserViewModel(
             }
         }
       } catch (e: Exception) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
         _error.value = e.message
         _unsortedItems.value = emptyList()
         Log.e(TAG, "Exception loading directory", e)
       } finally {
-        _isLoading.value = false
+        if (isActive) _isLoading.value = false
       }
     }
   }
@@ -374,16 +383,22 @@ class FileSystemBrowserViewModel(
    * Based on playback state tracking (not directly in Fossify, but similar pattern)
    */
   private fun loadPlaybackInfo(items: List<FileSystemItem>) {
-    viewModelScope.launch(Dispatchers.IO) {
+    playbackJob?.cancel()
+    playbackJob = viewModelScope.launch(Dispatchers.IO) {
       val videoFiles = items.filterIsInstance<FileSystemItem.VideoFile>()
       val playbackMap = mutableMapOf<Long, Float>()
 
       Log.d(TAG, "Loading playback info for ${videoFiles.size} videos")
 
+      // mpvGo: one batched query instead of up to two per video
+      val states = playbackStateRepository.getVideoDataByTitles(
+        videoFiles.flatMap { listOf(MediaIdentifier.forLocalPath(it.video.path), it.video.displayName) },
+      )
+
       videoFiles.forEach { videoFile ->
         val video = videoFile.video
-        val playbackState = playbackStateRepository.getVideoDataByTitle(MediaIdentifier.forLocalPath(video.path))
-          ?: playbackStateRepository.getVideoDataByTitle(video.displayName)
+        val playbackState = states[MediaIdentifier.forLocalPath(video.path)]
+          ?: states[video.displayName]
 
         if (playbackState != null) {
           val durationSeconds = if (video.duration > 0) {

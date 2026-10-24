@@ -303,9 +303,11 @@ class VideoListViewModel(
   }
 
   private suspend fun loadPlaybackInfo(videos: List<Video>) {
+    // mpvGo: one batched query instead of one per video
+    val states = playbackStateRepository.getVideoDataByTitles(videos.map { MediaIdentifier.forLocalPath(it.path) })
     val videosWithInfo =
       videos.map { video ->
-        val playbackState = playbackStateRepository.getVideoDataByTitle(MediaIdentifier.forLocalPath(video.path))
+        val playbackState = states[MediaIdentifier.forLocalPath(video.path)]
         val watchedThreshold = browserPreferences.watchedThreshold.get()
 
         // Calculate watch progress (0.0 to 1.0)

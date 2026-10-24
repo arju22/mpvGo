@@ -7,6 +7,10 @@ interface PlaybackStateRepository {
 
   suspend fun getVideoDataByTitle(mediaTitle: String): PlaybackStateEntity?
 
+  /** mpvGo: batch lookup keyed by mediaTitle (avoids one query per list item). */
+  suspend fun getVideoDataByTitles(mediaTitles: Collection<String>): Map<String, PlaybackStateEntity> =
+    mediaTitles.toSet().mapNotNull { t -> getVideoDataByTitle(t)?.let { t to it } }.toMap()
+
   suspend fun clearAllPlaybackStates()
 
   suspend fun deleteByTitle(mediaTitle: String)
