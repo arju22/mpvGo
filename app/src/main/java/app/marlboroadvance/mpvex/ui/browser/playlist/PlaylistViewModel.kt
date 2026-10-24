@@ -72,41 +72,28 @@ class PlaylistViewModel(
     // Then observe for updates with actual counts
     viewModelScope.launch(Dispatchers.IO) {
       repository.observeAllPlaylists().collectLatest { playlistsFromDb ->
-        val sortedPlaylists = playlistsFromDb.sortedBy { it.name.lowercase() }
-
-        val playlistsWithCounts = sortedPlaylists.map { playlist ->
-          val count = getActualVideoCount(playlist.id)
-          PlaylistWithCount(playlist, count)
-        }
-
-        _playlistsWithCount.value = playlistsWithCounts
+        _playlistsWithCount.value = withActualCounts(playlistsFromDb.sortedBy { it.name.lowercase() })
         _hasCompletedInitialLoad.value = true
       }
     }
   }
 
   /**
-   * Get the actual count of videos that exist for a playlist
+   * mpvGo: count available items for all playlists with one folder pass over the union of their
+   * buckets and Set lookups (was: per-playlist scans plus an O(items x videos) any{} search).
    */
-  private suspend fun getActualVideoCount(playlistId: Int): Int {
-    val playlist = repository.getPlaylistById(playlistId)
-    val items = repository.getPlaylistItems(playlistId)
-    if (items.isEmpty()) return 0
-
-    // For M3U playlists, return item count directly (URLs don't need file system check)
-    if (playlist?.isM3uPlaylist == true) {
-      return items.size
+  private suspend fun withActualCounts(playlists: List<PlaylistEntity>): List<PlaylistWithCount> {
+    val itemPaths = playlists.associate { p -> p.id to repository.getPlaylistItems(p.id).map { it.filePath } }
+    val buckets = playlists
+      .filterNot { it.isM3uPlaylist }
+      .flatMapTo(HashSet()) { p -> itemPaths[p.id].orEmpty().map { File(it).parent ?: "" } }
+    val available = if (buckets.isEmpty()) {
+      emptySet()
+    } else {
+      MediaFileRepository.getVideosForBuckets(getApplication(), buckets).mapTo(HashSet()) { it.path }
     }
-
-    // For regular playlists, check if files still exist
-    val bucketIds = items.map { item ->
-      File(item.filePath).parent ?: ""
-    }.toSet()
-
-    val allVideos = MediaFileRepository.getVideosForBuckets(getApplication(), bucketIds)
-
-    return items.count { item ->
-      allVideos.any { video -> video.path == item.filePath }
+    return playlists.map { p ->
+      PlaylistWithCount(p, PlaylistCounts.countAvailable(p.isM3uPlaylist, itemPaths[p.id].orEmpty(), available))
     }
   }
 
@@ -115,14 +102,7 @@ class PlaylistViewModel(
       try {
         _isLoading.value = true
         val playlistsFromDb = repository.getAllPlaylists()
-        val sortedPlaylists = playlistsFromDb.sortedBy { it.name.lowercase() }
-
-        val playlistsWithCounts = sortedPlaylists.map { playlist ->
-          val count = getActualVideoCount(playlist.id)
-          PlaylistWithCount(playlist, count)
-        }
-
-        _playlistsWithCount.value = playlistsWithCounts
+        _playlistsWithCount.value = withActualCounts(playlistsFromDb.sortedBy { it.name.lowercase() })
       } catch (e: Exception) {
         Log.e(TAG, "Error refreshing playlists", e)
       } finally {
