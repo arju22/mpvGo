@@ -30,7 +30,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -118,17 +117,6 @@ class PlayerViewModel(
   private val volumeBoostCap by MPVLib.propInt["volume-max"].collectAsState(viewModelScope)
 
   init {
-    // Poll precise position only when playing
-    viewModelScope.launch {
-      while (isActive) {
-        val time = MPVLib.getPropertyDouble("time-pos")
-        if (time != null) {
-          _precisePosition.value = time.toFloat()
-        }
-        delay(42) // ~24fps updates
-      }
-    }
-
     // Update precise duration when the integer duration changes (avoid polling)
     viewModelScope.launch {
       MPVLib.propInt["duration"].collect { _ ->
@@ -175,6 +163,15 @@ class PlayerViewModel(
 
   private val _seekBarShown = MutableStateFlow(false)
   val seekBarShown: StateFlow<Boolean> = _seekBarShown.asStateFlow()
+
+  init {
+    // Poll precise position only while the seekbar can be visible (saves wake-ups when hidden)
+    viewModelScope.launchPositionPolling(
+      active = combine(_controlsShown, _seekBarShown) { controls, seekBar -> controls || seekBar },
+      read = { MPVLib.getPropertyDouble("time-pos") },
+      onPosition = { _precisePosition.value = it },
+    )
+  }
 
   private val _areControlsLocked = MutableStateFlow(false)
   val areControlsLocked: StateFlow<Boolean> = _areControlsLocked.asStateFlow()
