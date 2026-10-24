@@ -9,7 +9,7 @@ A fast, battery-friendly Android video player powered by **libmpv**, with a buil
 
 ## Status
 
-Early development. Planned on top of the mpvEx base:
+Early development. Planned:
 
 - Bug fixes (sorting crash, reliable resume position, and more)
 - Lower battery use and a smaller APK
@@ -21,10 +21,11 @@ Early development. Planned on top of the mpvEx base:
 
 ## Credits
 
-mpvGo is based on [mpvEx](https://github.com/marlboro-advance/mpvEx) by marlboro-advance, which in
-turn builds on [mpv-android](https://github.com/mpv-android/mpv-android) and
-[mpvKt](https://github.com/abdallahmehiz/mpvKt). Upstream history is preserved in this repository and
-upstream changes are merged periodically.
+mpvGo started as a fork of [mpvEx](https://github.com/marlboro-advance/mpvEx) by marlboro-advance
+and is now developed independently. Thanks to its authors and to the projects it builds on:
+[mpv-android](https://github.com/mpv-android/mpv-android) and
+[mpvKt](https://github.com/abdallahmehiz/mpvKt). The original commit history is preserved in this
+repository.
 
 ## License
 

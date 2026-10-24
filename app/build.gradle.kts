@@ -26,7 +26,7 @@ base {
 }
 
 android {
-  namespace = "app.marlboroadvance.mpvex"
+  namespace = "app.arju.mpvgo"
   compileSdk = 37
 
   defaultConfig {

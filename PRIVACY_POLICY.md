@@ -1,9 +1,9 @@
-# Privacy Policy for mpvEx (mpvExtended)
+# Privacy Policy for mpvGo
 
 **Effective Date:** September 27, 2026  
-**Application Name:** mpvEx (mpvExtended)  
-**Package Name:** `app.marlboroadvance.mpvex`  
-**Hosted GitHub Pages Version:** [https://marlboro-advance.github.io/mpvEx/privacy-policy.html](https://marlboro-advance.github.io/mpvEx/privacy-policy.html)  
+**Application Name:** mpvGo  
+**Package Name:** `io.github.arju22.mpvgo`  
+**Hosted GitHub Pages Version:** [https://arju22.github.io/mpvGo/privacy-policy.html](https://arju22.github.io/mpvGo/privacy-policy.html)  
 **License:** Apache License 2.0  
 
 ---
@@ -13,15 +13,15 @@
 - **Zero Data Collection:** We do not collect, transmit, store, sell, or share any personal information.
 - **No Ads & No Analytics:** The application contains zero advertising SDKs, zero analytics tracking (no Google/Firebase Analytics), and zero telemetry.
 - **Local Processing:** All media discovery, playback history, thumbnails, and settings remain 100% on your device.
-- **100% Open Source:** mpvEx is free and open-source software. You can inspect the source code anytime on [GitHub](https://github.com/marlboro-advance/mpvEx).
+- **100% Open Source:** mpvGo is free and open-source software. You can inspect the source code anytime on [GitHub](https://github.com/arju22/mpvGo).
 
 ---
 
 ## 1. Introduction
 
-mpvEx (mpvExtended) ("the Application", "we", "us", or "our") is an open-source media player for Android built upon the `libmpv` playback engine. We are committed to maintaining the highest privacy standards. This Privacy Policy describes how mpvEx handles information on Android devices.
+mpvGo ("the Application", "we", "us", or "our") is an open-source media player for Android built upon the `libmpv` playback engine. We are committed to maintaining the highest privacy standards. This Privacy Policy describes how mpvGo handles information on Android devices.
 
-Because mpvEx operates strictly as a local, client-side media player utility, we do not operate user accounts, remote user databases, or data tracking services.
+Because mpvGo operates strictly as a local, client-side media player utility, we do not operate user accounts, remote user databases, or data tracking services.
 
 ---
 
@@ -38,7 +38,7 @@ We do not collect or monitor any personal or device data:
 
 ## 3. Android Permissions & Usage
 
-To function properly as a media player, mpvEx requests the following Android permissions. Each permission is used strictly for on-device functionality:
+To function properly as a media player, mpvGo requests the following Android permissions. Each permission is used strictly for on-device functionality:
 
 | Permission | Category | Purpose |
 | :--- | :--- | :--- |
@@ -49,7 +49,7 @@ To function properly as a media player, mpvEx requests the following Android per
 | `POST_NOTIFICATIONS` | Notifications | Displays ongoing playback controls (play, pause, seek, track info) on Android 13+. |
 | `REQUEST_INSTALL_PACKAGES` *(Standard flavor only)* | Updates | Allows self-updating the APK when a user initiates an update from GitHub releases. Not used for third-party APKs. |
 
-You may grant or revoke permissions at any time via Android System Settings (**Settings > Apps > mpvEx > Permissions**).
+You may grant or revoke permissions at any time via Android System Settings (**Settings > Apps > mpvGo > Permissions**).
 
 ---
 
@@ -59,15 +59,15 @@ All app-related data is stored locally on your device:
 
 - **Playback History & Positions:** Saved in a local SQLite/Room database on your device to let you resume playback where you left off.
 - **App Preferences:** Playback speed, gestures, subtitle preferences, and mpv configuration scripts are saved in Android DataStore/SharedPreferences.
-- **Data Deletion:** You can clear your playback history at any time in the app settings, or clear all application data via Android System Settings (**Settings > Apps > mpvEx > Storage > Clear Data**). Uninstalling the app permanently deletes all local data.
+- **Data Deletion:** You can clear your playback history at any time in the app settings, or clear all application data via Android System Settings (**Settings > Apps > mpvGo > Storage > Clear Data**). Uninstalling the app permanently deletes all local data.
 
 ---
 
 ## 5. Network Streaming & Third-Party Services
 
 When you stream content from an external URL (HTTP/HTTPS/HLS/RTSP/RTMP) or network share (SMB, FTP, WebDAV):
-- mpvEx establishes a direct network connection from your device to the specified server.
-- No intermediary proxy or logging servers are operated by mpvEx.
+- mpvGo establishes a direct network connection from your device to the specified server.
+- No intermediary proxy or logging servers are operated by mpvGo.
 - The connection is governed by the privacy policy of the respective streaming host.
 - Any network credentials entered are stored encrypted/locally on your device and sent only to the host you specified.
 
@@ -75,25 +75,25 @@ When you stream content from an external URL (HTTP/HTTPS/HLS/RTSP/RTMP) or netwo
 
 ## 6. Crash Reporting
 
-mpvEx provides an on-device crash dialog (`CrashActivity`) for diagnosing unexpected crashes. Crash logs are **never** transmitted automatically. If you choose to submit a bug report to our GitHub Issues page, you do so manually and can review or sanitize the log contents before submitting.
+mpvGo provides an on-device crash dialog (`CrashActivity`) for diagnosing unexpected crashes. Crash logs are **never** transmitted automatically. If you choose to submit a bug report to our GitHub Issues page, you do so manually and can review or sanitize the log contents before submitting.
 
 ---
 
 ## 7. Children's Privacy
 
-mpvEx does not collect personal information from any user, including children under the age of 13. It complies with COPPA and GDPR regulations.
+mpvGo does not collect personal information from any user, including children under the age of 13. It complies with COPPA and GDPR regulations.
 
 ---
 
 ## 8. Open Source & Transparency
 
-mpvEx is licensed under the **Apache License 2.0**. Our complete source code is public and open for auditing:
-- Repository: [https://github.com/marlboro-advance/mpvEx](https://github.com/marlboro-advance/mpvEx)
+mpvGo is licensed under the **Apache License 2.0**. Our complete source code is public and open for auditing:
+- Repository: [https://github.com/arju22/mpvGo](https://github.com/arju22/mpvGo)
 
 ---
 
 ## 9. Contact Us
 
 If you have any questions or feedback regarding this Privacy Policy:
-- GitHub Issues: [https://github.com/marlboro-advance/mpvEx/issues](https://github.com/marlboro-advance/mpvEx/issues)
-- GitHub Project: [https://github.com/marlboro-advance/mpvEx](https://github.com/marlboro-advance/mpvEx)
+- GitHub Issues: [https://github.com/arju22/mpvGo/issues](https://github.com/arju22/mpvGo/issues)
+- GitHub Project: [https://github.com/arju22/mpvGo](https://github.com/arju22/mpvGo)
