@@ -303,14 +303,15 @@ private fun SquigglySeekbar(
   val matchedWaveEndpoint = 1f
   val transitionEnabled = true
 
-  // Animate height fraction based on paused state and scrubbing state
+  // Animate height fraction based on paused state and scrubbing state.
+  // mpvGo: animate inside the effect (was a nested scope.launch, so rapid pause/play left two animators fighting)
   LaunchedEffect(isPaused, isScrubbing, useWavySeekbar) {
     if (!useWavySeekbar) {
       heightFraction = 0f
       return@LaunchedEffect
     }
 
-    scope.launch {
+    run {
       val shouldFlatten = isPaused || isScrubbing
       val targetHeight = if (shouldFlatten) 0f else 1f
       val duration = if (shouldFlatten) 550 else 800
@@ -347,6 +348,9 @@ private fun SquigglySeekbar(
     }
   }
 
+  // mpvGo: one Path reused across frames (was allocated on every draw while the wave animates)
+  val path = remember { Path() }
+
   Canvas(
     modifier =
       modifier
@@ -382,7 +386,7 @@ private fun SquigglySeekbar(
       }
 
     // Build wavy path for played portion
-    val path = Path()
+    path.reset()
     val waveStart = -phaseOffset - waveLength / 2f
     val waveEnd = if (transitionEnabled) totalWidth else waveProgressPx
 
@@ -392,6 +396,12 @@ private fun SquigglySeekbar(
     var waveSign = 1f
     var currentAmp = computeAmplitude(currentX, waveSign)
     val dist = waveLength / 2f
+
+    // mpvGo: flat line needs no cubic segments
+    if (lineAmplitude * heightFraction == 0f) {
+      path.lineTo(waveEnd, centerY)
+      currentX = waveEnd
+    }
 
     while (currentX < waveEnd) {
       waveSign = -waveSign
