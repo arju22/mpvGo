@@ -12,6 +12,7 @@ import android.graphics.Bitmap
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
@@ -73,6 +74,10 @@ class MediaPlaybackService :
   private var paused = false
   private var lastNotificationUpdateTime = 0L
   private val notificationUpdateIntervalMs = 1000L // Update notification every 1 second
+  private var lastReportedPositionMs = 0L
+  private var lastReportedAtMs = 0L
+  private var lastReportedSpeed = 1.0f
+  private var lastDurationMs = -1L
 
   inner class MediaPlaybackBinder : Binder() {
     fun getService() = this@MediaPlaybackService
@@ -260,34 +265,42 @@ class MediaPlaybackService :
         metadataBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON, it)
       }
       mediaSession.setMetadata(metadataBuilder.build())
+      lastDurationMs = duration
 
       // Update playback state
       val position = runCatching { 
         MPVLib.getPropertyDouble("time-pos")?.times(1000)?.toLong() 
       }.getOrNull() ?: 0L
-      
-      val state = if (paused) PlaybackStateCompat.STATE_PAUSED else PlaybackStateCompat.STATE_PLAYING
-
-      mediaSession.setPlaybackState(
-        PlaybackStateCompat
-          .Builder()
-          .setActions(
-            PlaybackStateCompat.ACTION_PLAY or
-              PlaybackStateCompat.ACTION_PAUSE or
-              PlaybackStateCompat.ACTION_PLAY_PAUSE or
-              PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
-              PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-              PlaybackStateCompat.ACTION_STOP or
-              PlaybackStateCompat.ACTION_SEEK_TO,
-          ).setState(state, position, 1.0f)
-          .build(),
-      )
+      updatePlaybackState(position)
 
       // Update notification
       updateNotification()
     } catch (e: Exception) {
       Log.e(TAG, "Error updating MediaSession", e)
     }
+  }
+
+  private fun updatePlaybackState(position: Long) {
+    val state = if (paused) PlaybackStateCompat.STATE_PAUSED else PlaybackStateCompat.STATE_PLAYING
+    val speed = runCatching { MPVLib.getPropertyDouble("speed")?.toFloat() }.getOrNull() ?: 1.0f
+    lastReportedPositionMs = position
+    lastReportedAtMs = SystemClock.elapsedRealtime()
+    lastReportedSpeed = speed
+
+    mediaSession.setPlaybackState(
+      PlaybackStateCompat
+        .Builder()
+        .setActions(
+          PlaybackStateCompat.ACTION_PLAY or
+            PlaybackStateCompat.ACTION_PAUSE or
+            PlaybackStateCompat.ACTION_PLAY_PAUSE or
+            PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+            PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+            PlaybackStateCompat.ACTION_STOP or
+            PlaybackStateCompat.ACTION_SEEK_TO,
+        ).setState(state, position, speed, lastReportedAtMs)
+        .build(),
+    )
   }
 
   private fun updateNotification() {
@@ -407,11 +420,28 @@ class MediaPlaybackService :
     value: Double,
   ) {
     if (property == "time-pos") {
-      // Throttle notification updates to avoid excessive updates
+      // mpvGo: the session extrapolates position itself; only re-send state on drift (seek/speed)
+      // and rebuild metadata/notification only when the duration becomes known or changes.
       val currentTime = System.currentTimeMillis()
       if (currentTime - lastNotificationUpdateTime >= notificationUpdateIntervalMs) {
         lastNotificationUpdateTime = currentTime
-        updateMediaSession()
+        try {
+          val duration = MPVLib.getPropertyDouble("duration")?.times(1000)?.toLong() ?: 0L
+          if (duration != lastDurationMs) {
+            updateMediaSession()
+            return
+          }
+          val position = (value * 1000).toLong()
+          val now = SystemClock.elapsedRealtime()
+          if (PlaybackStateSync.needsUpdate(
+              lastReportedPositionMs, lastReportedAtMs, lastReportedSpeed, !paused, position, now,
+            )
+          ) {
+            updatePlaybackState(position)
+          }
+        } catch (e: Exception) {
+          Log.e(TAG, "Error syncing playback position", e)
+        }
       }
     }
   }
