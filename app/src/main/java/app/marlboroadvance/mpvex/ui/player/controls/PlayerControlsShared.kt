@@ -744,7 +744,7 @@ fun RenderPlayerButton(
               ) {
                 Box(contentAlignment = Alignment.Center) {
                   Text(
-                    text = if (loopA != null) viewModel.formatTimestamp(loopA!!) else "A",
+                    text = loopA?.let { viewModel.formatTimestamp(it) } ?: "A",
                     style = MaterialTheme.typography.labelLarge,
                     fontFamily = FontFamily.Monospace,
                     color = if (loopA != null) {
@@ -792,7 +792,7 @@ fun RenderPlayerButton(
               ) {
                 Box(contentAlignment = Alignment.Center) {
                   Text(
-                    text = if (loopB != null) viewModel.formatTimestamp(loopB!!) else "B",
+                    text = loopB?.let { viewModel.formatTimestamp(it) } ?: "B",
                     style = MaterialTheme.typography.labelLarge,
                     fontFamily = FontFamily.Monospace,
                     color = if (loopB != null) {
