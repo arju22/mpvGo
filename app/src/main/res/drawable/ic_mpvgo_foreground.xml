@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- mpvGo launcher foreground: play triangle with speed streaks. Content kept inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- speed streaks -->
+    <path
+        android:pathData="M29,44.5L39,44.5M25,54L39,54M29,63.5L39,63.5"
+        android:strokeWidth="4.5"
+        android:strokeColor="#FF9BEAFF"
+        android:strokeLineCap="round" />
+    <!-- rounded play triangle -->
+    <path
+        android:pathData="M47,38.5L47,69.5L74,54Z"
+        android:fillColor="#FFFFFFFF"
+        android:strokeWidth="7"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineJoin="round" />
+</vector>

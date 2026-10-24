@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon (Android 13+) version of the mpvGo foreground; the system tints it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M29,44.5L39,44.5M25,54L39,54M29,63.5L39,63.5"
+        android:strokeWidth="4.5"
+        android:strokeColor="#FF000000"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M47,38.5L47,69.5L74,54Z"
+        android:fillColor="#FF000000"
+        android:strokeWidth="7"
+        android:strokeColor="#FF000000"
+        android:strokeLineJoin="round" />
+</vector>
