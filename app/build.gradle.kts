@@ -176,7 +176,8 @@ kotlin {
 }
 
 composeCompiler {
-  includeSourceInformation = true
+  // mpvGo: AGP already adds source information to debuggable variants; keep it out of release.
+  includeSourceInformation = false
 }
 
 room {
