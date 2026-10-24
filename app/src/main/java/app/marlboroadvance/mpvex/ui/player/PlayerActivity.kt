@@ -2084,6 +2084,7 @@ class PlayerActivity :
 
     return runCatching {
       val state = playbackStateRepository.getVideoDataByTitle(mediaIdentifier)
+      if (state == null) Log.d(TAG, "Resume lookup key=$mediaIdentifier: no saved state")
 
       applyPlaybackState(state)
       applyDefaultSettings(state)
@@ -2149,8 +2150,10 @@ class PlayerActivity :
     MPVLib.setPropertyDouble("video-zoom", state.videoZoom.toDouble())
     viewModel.setVideoZoom(state.videoZoom)
 
-    if (playerPreferences.savePositionOnQuit.get() && state.lastPosition != 0) {
-      MPVLib.setPropertyInt("time-pos", state.lastPosition)
+    val resumeAt = ResumePolicy.resumePosition(state.lastPosition, state.timeRemaining)
+    Log.d(TAG, "Resume lookup key=$mediaIdentifier saved=${state.lastPosition} remaining=${state.timeRemaining} -> $resumeAt")
+    if (playerPreferences.savePositionOnQuit.get() && resumeAt > 0) {
+      MPVLib.command(*ResumePolicy.seekCommand(resumeAt))
     }
   }
 
@@ -2353,6 +2356,9 @@ class PlayerActivity :
         generatePlaylistFromFolder(path)
       }
     }
+
+    // Save the outgoing file under its own key before switching; onPause skips this in PiP.
+    if (isReady) saveVideoPlaybackState(fileName)
 
     // Extract the new fileName before loading the file
     fileName = getFileName(intent)

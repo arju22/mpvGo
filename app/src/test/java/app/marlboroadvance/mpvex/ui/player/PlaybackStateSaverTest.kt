@@ -56,6 +56,29 @@ class PlaybackStateSaverTest {
   }
 
   @Test
+  fun `queued save writes under the key captured at submission (onNewIntent)`() = runTest {
+    val saver = PlaybackStateSaver(TestScope(testScheduler))
+    val db = mutableMapOf<String, Int>()
+    var currentKey = "base.mp4_1"
+    var currentPos = 18
+
+    fun save() {
+      val key = currentKey
+      val pos = currentPos
+      saver.saveAsync { delay(50); db[key] = pos }
+    }
+
+    saver.saveAsync { delay(500) } // a slow earlier write keeps the next one queued
+    save() // onPause for base.mp4
+    currentKey = "same.mp4_2" // onNewIntent switches files before the queued write runs
+    currentPos = 2
+    advanceTimeBy(1_000)
+    runCurrent()
+
+    assertEquals(mapOf("base.mp4_1" to 18), db)
+  }
+
+  @Test
   fun `checkpoints run only while playing`() = runTest {
     val scope = TestScope(StandardTestDispatcher(testScheduler))
     var playing = true
