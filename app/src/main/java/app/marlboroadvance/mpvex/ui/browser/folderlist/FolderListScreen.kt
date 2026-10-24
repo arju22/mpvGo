@@ -684,9 +684,10 @@ private fun FolderListContent(
         }
       }
     } else {
+      val uniqueFolders = remember(folders) { folders.distinctBy { it.path } }
       if (isGridMode) {
         GridContent(
-          folders = folders,
+          folders = uniqueFolders,
           foldersWithNewCount = foldersWithNewCount,
           recentlyPlayedFilePath = recentlyPlayedFilePath,
           folderGridColumns = folderGridColumns,
@@ -700,7 +701,7 @@ private fun FolderListContent(
         )
       } else {
         ListContent(
-          folders = folders,
+          folders = uniqueFolders,
           foldersWithNewCount = foldersWithNewCount,
           recentlyPlayedFilePath = recentlyPlayedFilePath,
           tapThumbnailToSelect = tapThumbnailToSelect,
@@ -741,6 +742,8 @@ private fun GridContent(
   onFolderClick: (VideoFolder) -> Unit,
   onFolderLongClick: (VideoFolder) -> Unit,
 ) {
+  val newCounts = rememberNewCounts(foldersWithNewCount)
+  val recentParent = remember(recentlyPlayedFilePath) { recentlyPlayedFilePath?.let { File(it).parent } }
   Box(modifier = Modifier.fillMaxSize()) {
     LazyVerticalGrid(
       columns = GridCells.Fixed(folderGridColumns),
@@ -754,16 +757,11 @@ private fun GridContent(
       horizontalArrangement = Arrangement.spacedBy(4.dp),
       verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-      items(folders.size) { index ->
+      items(folders.size, key = { folders[it].path }, contentType = { "folder" }) { index ->
         val folder = folders[index]
-        val isRecentlyPlayed = recentlyPlayedFilePath?.let { filePath ->
-          val file = File(filePath)
-          file.parent == folder.path
-        } ?: false
+        val isRecentlyPlayed = recentParent != null && recentParent == folder.path
 
-        val newCount = foldersWithNewCount
-          .find { it.folder.bucketId == folder.bucketId }
-          ?.newVideoCount ?: 0
+        val newCount = newCounts[folder.bucketId] ?: 0
 
         FolderCard(
           folder = folder,
@@ -814,6 +812,8 @@ private fun ListContent(
   onFolderClick: (VideoFolder) -> Unit,
   onFolderLongClick: (VideoFolder) -> Unit,
 ) {
+  val newCounts = rememberNewCounts(foldersWithNewCount)
+  val recentParent = remember(recentlyPlayedFilePath) { recentlyPlayedFilePath?.let { File(it).parent } }
   Box(modifier = Modifier.fillMaxSize()) {
     LazyColumn(
       state = listState,
@@ -824,15 +824,10 @@ private fun ListContent(
         bottom = navigationBarHeight
       ),
     ) {
-      items(folders) { folder ->
-        val isRecentlyPlayed = recentlyPlayedFilePath?.let { filePath ->
-          val file = File(filePath)
-          file.parent == folder.path
-        } ?: false
+      items(folders, key = { it.path }, contentType = { "folder" }) { folder ->
+        val isRecentlyPlayed = recentParent != null && recentParent == folder.path
 
-        val newCount = foldersWithNewCount
-          .find { it.folder.bucketId == folder.bucketId }
-          ?.newVideoCount ?: 0
+        val newCount = newCounts[folder.bucketId] ?: 0
 
         FolderCard(
           folder = folder,
