@@ -342,6 +342,12 @@ class PlayerActivity :
     setupPipHelper()
     setupMediaSession()
 
+    // Periodic resume checkpoint while playing, so a process kill doesn't lose the position
+    lifecycleScope.launchPlaybackCheckpoints(
+      isPlaying = { isReady && mpvInitialized && !player.isExiting && viewModel.paused == false },
+      checkpoint = { saveVideoPlaybackState(fileName) },
+    )
+
     playlistId = intent.getIntExtra("playlist_id", -1).takeIf { it != -1 }
     playlistIndex = intent.getIntExtra("playlist_index", 0)
 
@@ -584,20 +590,8 @@ class PlayerActivity :
         mediaPlaybackService = null
       }
 
-      // Wait for any pending save operation to complete before destroying MPV
-      // This prevents the race condition where the save coroutine tries to access
-      // MPV properties after MPVLib.destroy() has been called
-      savePlaybackStateJob?.let { job ->
-        Log.d(TAG, "Waiting for save playback state job to complete...")
-        runCatching {
-          // Use runBlocking to ensure we wait for the job to finish
-          // This is safe here as onDestroy is already on the main thread
-          kotlinx.coroutines.runBlocking {
-            job.join()
-          }
-        }
-        Log.d(TAG, "Save playback state job completed")
-      }
+      // Pending saves run on an app-level scope and only touch the database (MPV values are read
+      // before they are queued), so there is no need to block the main thread waiting for them.
 
       cleanupMPV()
       cleanupAudio()
@@ -1991,8 +1985,8 @@ class PlayerActivity :
   private fun saveVideoPlaybackState(mediaTitle: String, isSync: Boolean = false) {
     if (mediaIdentifier.isBlank()) return
 
-    // Cancel any previous pending save operation
-    savePlaybackStateJob?.cancel()
+    // Capture the identifier now: playlist navigation changes mediaIdentifier right after saving.
+    val mediaIdentifier = mediaIdentifier
 
     // Read values from MPV immediately while it is still loaded (before stop/destroy or coroutine delay)
     val currentPos = (MPVLib.getPropertyInt("time-pos") ?: viewModel.pos ?: 0).coerceAtLeast(0)
@@ -2071,12 +2065,11 @@ class PlayerActivity :
 
     if (isSync) {
       kotlinx.coroutines.runBlocking(Dispatchers.IO) {
-        saveBlock()
+        PlaybackStateSaver.shared.save(saveBlock)
       }
     } else {
-      savePlaybackStateJob = lifecycleScope.launch(Dispatchers.IO) {
-        saveBlock()
-      }
+      // App-level, non-cancellable: survives onStop/onDestroy and the next save (#859, #852, #695)
+      savePlaybackStateJob = PlaybackStateSaver.shared.saveAsync(saveBlock)
     }
   }
 
