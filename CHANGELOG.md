@@ -53,6 +53,30 @@ This file is updated with every batch of changes and before every release push.
 - Battery: the playback position is polled only while the controls or seekbar are visible.
 - Battery/startup: the full storage media scan on every app launch was removed; new files are
   still picked up by the system media store and folder refreshes.
+- mpvGo is now independent: the package is `app.arju.mpvgo` and the internal names (database
+  `mpvgo.db`, settings backup root `mpvGoSettings`, notification channel, mpv user-data keys,
+  User-Agent `mpvGo/1.0`) were renamed. **Existing test installs lose their library history and
+  settings once** (no public release yet, so no migration). README keeps the mpvEx credit.
+- Performance/battery audit:
+  - Library refresh skips the forced full storage rescan when nothing changed; pull-to-refresh
+    still finds new files.
+  - Playlist, folder and video lists use stable keys and map lookups instead of repeated
+    list scans.
+  - Wavy seekbar only animates while playing and visible.
+  - Player controls no longer recompose on every position update.
+  - Network streaming: shared daemon thread pool, larger buffers, thread-safe caches, and
+    stopping a stream no longer blocks the main thread.
+  - Playback notification updates only when position drifts or speed/duration changes,
+    instead of every second.
+  - Library lists stop collecting database updates while the screen is in the background.
+  - Empty and permission-denied screens pulse 3 times then stop animating.
+  - Cache maintenance runs at most once a day, 15 s after launch.
+  - Baseline Profile + ProfileInstaller for faster startup and scrolling (GitHub/standard build).
+  - Smaller APK: only English resources are kept; Compose source information removed from builds.
+
+### Not done (by decision)
+- Database destructive-migration fallback and new indices: left as-is (database upgrades are rare).
+- Remaining audit items skipped by the user, plus the exit-while-loading cleanup (tied to #540).
 
 ### Investigating
 - Crash on mpv property calls after the player is destroyed
@@ -63,8 +87,6 @@ This file is updated with every batch of changes and before every release push.
 
 ## Planned / requested
 
-- Wavy seekbar redraw cost (battery).
-- APK size quick wins (unused resources, locale filters).
 - Built-in web browser (home-screen tile, video detection, ad blocking).
 - Downloads (HTTP/HLS) with a Downloads page.
 - Donate links.
