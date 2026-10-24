@@ -73,18 +73,8 @@ fun PermissionDeniedState(
   // Determine if we're using MANAGE_EXTERNAL_STORAGE or scoped storage permissions
   val isPlayStoreBuild = remember { BuildConfig.SCOPED_STORAGE_ONLY }
 
-  // Animated scale for the icon
-  val infiniteTransition = rememberInfiniteTransition(label = "permission_icon")
-  val scale by infiniteTransition.animateFloat(
-    initialValue = 1f,
-    targetValue = 1.1f,
-    animationSpec =
-      infiniteRepeatable(
-        animation = tween(2000, easing = FastOutSlowInEasing),
-        repeatMode = RepeatMode.Reverse,
-      ),
-    label = "icon_scale",
-  )
+  // Animated scale for the icon (mpvGo: settles after a few cycles)
+  val scale by rememberSettlingPulse(1f, 1.1f, 2000, settleAt = 1f)
 
   Box(
     modifier = modifier

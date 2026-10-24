@@ -37,18 +37,8 @@ fun EmptyState(
   message: String,
   modifier: Modifier = Modifier,
 ) {
-  // Animated alpha for subtle pulsing effect
-  val infiniteTransition = rememberInfiniteTransition(label = "empty_state")
-  val alpha by infiniteTransition.animateFloat(
-    initialValue = 0.6f,
-    targetValue = 1f,
-    animationSpec =
-      infiniteRepeatable(
-        animation = tween(2500, easing = FastOutSlowInEasing),
-        repeatMode = RepeatMode.Reverse,
-      ),
-    label = "icon_alpha",
-  )
+  // Animated alpha for subtle pulsing effect (mpvGo: settles after a few cycles)
+  val alpha by rememberSettlingPulse(0.6f, 1f, 2500, settleAt = 1f)
 
   Box(
     modifier = modifier.fillMaxSize(),
