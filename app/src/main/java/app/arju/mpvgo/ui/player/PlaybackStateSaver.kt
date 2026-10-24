@@ -39,6 +39,20 @@ class PlaybackStateSaver(
 }
 
 /**
+ * Decides whether a resume save/checkpoint may run. While a new file is still opening, mpv's
+ * time-pos/duration are null and any fallback would be the previous file's values, so saving is
+ * only allowed once [currentId] has reached file-loaded and mpv reports a real position/duration.
+ */
+object PlaybackSaveGate {
+  fun canSave(currentId: String, loadedId: String, timePos: Int?, duration: Int?): Boolean =
+    currentId.isNotBlank() &&
+      currentId == loadedId &&
+      timePos != null &&
+      duration != null &&
+      duration > 0
+}
+
+/**
  * Calls [checkpoint] every [intervalMs] while [isPlaying] returns true, so the resume position
  * survives a process kill (e.g. swipe-away during background playback).
  */

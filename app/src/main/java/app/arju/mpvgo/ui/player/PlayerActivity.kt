@@ -170,6 +170,9 @@ class PlayerActivity :
    */
   private var mediaIdentifier = ""
 
+  // mediaIdentifier of the file mpv last reported file-loaded for; resume saves require a match.
+  private var loadedMediaIdentifier = ""
+
   /**
    * Playlist of URIs for sequential playback
    */
@@ -1674,6 +1677,7 @@ class PlayerActivity :
       // If fileName was already set, but mediaIdentifier is missing, set it for safety
       mediaIdentifier = getMediaIdentifier(intent, fileName)
     }
+    loadedMediaIdentifier = mediaIdentifier
 
     // Start media notification service (like YouTube - always show notification)
     startBackgroundPlayback()
@@ -1988,9 +1992,16 @@ class PlayerActivity :
     // Capture the identifier now: playlist navigation changes mediaIdentifier right after saving.
     val mediaIdentifier = mediaIdentifier
 
-    // Read values from MPV immediately while it is still loaded (before stop/destroy or coroutine delay)
-    val currentPos = (MPVLib.getPropertyInt("time-pos") ?: viewModel.pos ?: 0).coerceAtLeast(0)
-    val currentDuration = (MPVLib.getPropertyInt("duration")?.takeIf { it > 0 } ?: (viewModel.duration ?: 0)).coerceAtLeast(0)
+    // Read values from MPV immediately while it is still loaded (before stop/destroy or coroutine delay).
+    // No fallback to viewModel.pos/duration: during a file switch those belong to the previous file.
+    val mpvPos = MPVLib.getPropertyInt("time-pos")
+    val mpvDuration = MPVLib.getPropertyInt("duration")
+    if (!PlaybackSaveGate.canSave(mediaIdentifier, loadedMediaIdentifier, mpvPos, mpvDuration)) {
+      Log.d(TAG, "Skipping playback save for $mediaIdentifier (loaded=$loadedMediaIdentifier, pos=$mpvPos, dur=$mpvDuration)")
+      return
+    }
+    val currentPos = mpvPos!!.coerceAtLeast(0)
+    val currentDuration = mpvDuration!!
     val speed = MPVLib.getPropertyDouble("speed") ?: DEFAULT_PLAYBACK_SPEED
     val videoZoom = MPVLib.getPropertyDouble("video-zoom")?.toFloat() ?: 0f
     val currentSid = player.sid
@@ -2359,6 +2370,7 @@ class PlayerActivity :
 
     // Save the outgoing file under its own key before switching; onPause skips this in PiP.
     if (isReady) saveVideoPlaybackState(fileName)
+    loadedMediaIdentifier = ""
 
     // Extract the new fileName before loading the file
     fileName = getFileName(intent)
@@ -3052,6 +3064,7 @@ class PlayerActivity :
 
     // Update playlist index
     playlistIndex = index
+    loadedMediaIdentifier = ""
 
     // Extract and set the new file name
     fileName = getFileNameFromUri(uri)
