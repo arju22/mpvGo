@@ -266,6 +266,7 @@ object GesturePreferencesScreen : Screen {
               )
             },
           )
+          TapZoneSettingsItems(enabled = useSingleTapForCenter)
 
           val doubleTapKeyCodes =
             listOf(

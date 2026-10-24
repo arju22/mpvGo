@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- mpvGo-only strings, kept separate from upstream strings.xml to ease merges. -->
+<resources>
+  <string name="pref_center_tap_area_title">Center tap area</string>
+  <string name="pref_center_tap_area_summary">Ellipse · X %1$d%% × Y %2$d%%</string>
+  <string name="pref_bottom_strip_shows_controls_title">Bottom strip always shows controls</string>
+  <string name="pref_bottom_strip_shows_controls_summary">Has priority over the center area</string>
+  <string name="pref_tap_outside_center_title">Tap outside the center area</string>
+  <string name="pref_tap_outside_center_summary">Show/hide controls</string>
+  <string name="tap_area_editor_reset">Reset</string>
+  <string name="tap_area_editor_save">Save</string>
+  <string name="tap_area_editor_unsaved">Unsaved changes</string>
+  <string name="tap_area_editor_saved">Saved</string>
+  <string name="tap_area_editor_hint">Drag the handles: right = width, bottom = height, center = move. Tap anywhere to test.</string>
+  <string name="tap_area_editor_tap_center">Single tap: center action (play/pause)</string>
+  <string name="tap_area_editor_tap_show">Single tap: show controls</string>
+  <string name="tap_area_editor_tap_toggle">Single tap: show/hide controls</string>
+  <string name="tap_area_editor_tap_side_suffix"> · double tap: seek</string>
+</resources>

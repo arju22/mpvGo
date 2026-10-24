@@ -95,6 +95,8 @@ fun GestureHandler(
   val isSeekingForwards by viewModel.isSeekingForwards.collectAsState()
   val useSingleTapForCenter by gesturePreferences.useSingleTapForCenter.collectAsState()
   val doubleTapSeekAreaWidth by gesturePreferences.doubleTapSeekAreaWidth.collectAsState()
+  val tapZonePreferences = koinInject<app.marlboroadvance.mpvex.preferences.TapZonePreferences>()
+  val tapZoneConfig = rememberTapZoneConfig(gesturePreferences, tapZonePreferences)
   var isDoubleTapSeeking by remember { mutableStateOf(false) }
   LaunchedEffect(seekAmount) {
     delay(800)
@@ -135,6 +137,8 @@ fun GestureHandler(
   var lastTapRegion by remember { mutableStateOf<String?>(null) }
   var pendingSingleTapRegion by remember { mutableStateOf<String?>(null) }
   var pendingSingleTapPosition by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
+  var pendingSingleTapAction by remember { mutableStateOf(SingleTapAction.ToggleControls) }
+  var tapSequence by remember { mutableStateOf(0) }
   val doubleTapTimeout = 250L
   val multiTapContinueWindow = 650L
 
@@ -143,20 +147,18 @@ fun GestureHandler(
   var lastSeekTime by remember { mutableStateOf<Long?>(null) }
 
   // Auto-reset tap count on timeout and execute single tap if no double tap detected
-  LaunchedEffect(tapCount, longPressTriggeredDuringTouch) {
+  LaunchedEffect(tapCount, tapSequence, longPressTriggeredDuringTouch) {
     if (tapCount == 1 && pendingSingleTapRegion != null) {
       delay(doubleTapTimeout)
       // Timeout occurred, execute single tap action only if not double-tap seeking and not triggered by long press
       if (tapCount == 1 && pendingSingleTapRegion != null && !isDoubleTapSeeking && !longPressTriggeredDuringTouch) {
-        val region = pendingSingleTapRegion!!
-        val isCenterTap = region == "center"
-        if (useSingleTapForCenter && isCenterTap) {
+        if (pendingSingleTapAction == SingleTapAction.CenterAction) {
           viewModel.handleCenterSingleTap()
         } else {
           if (panelShown != Panels.None && !allowGesturesInPanels) {
             viewModel.panelShown.update { Panels.None }
           }
-          if (controlsShown) {
+          if (controlsShown && pendingSingleTapAction == SingleTapAction.ToggleControls) {
             viewModel.hideControls()
           } else {
             viewModel.showControls()
@@ -185,23 +187,23 @@ fun GestureHandler(
   Box(
     modifier = modifier
       .fillMaxSize()
-      .padding(horizontal = 48.dp, vertical = 48.dp)
-      .pointerInput(areControlsLocked, doubleTapSeekAreaWidth, gesturePreferences, isVerticalGestureActive) {
-        // Isolated double-tap detection that doesn't interfere with other gestures
+      .pointerInput(areControlsLocked, doubleTapSeekAreaWidth, gesturePreferences, isVerticalGestureActive, tapZoneConfig) {
+        // Isolated double-tap detection that doesn't interfere with other gestures.
+        // Taps are handled edge to edge; the 48dp inset below only applies to drag gestures.
         if (isVerticalGestureActive) return@pointerInput
         awaitEachGesture {
           val down = awaitFirstDown(requireUnconsumed = false)
           val downPosition = down.position
-          val downTime = System.currentTimeMillis()
+          // Event time, not processing time, so a busy UI thread doesn't break double-tap timing
+          val downTime = down.uptimeMillis
+          val touchSlop = viewConfiguration.touchSlop
 
           // Calculate regions
-          val seekAreaFraction = doubleTapSeekAreaWidth / 100f
-          val leftBoundary = size.width * seekAreaFraction
-          val rightBoundary = size.width * (1f - seekAreaFraction)
-          val region = when {
-            downPosition.x > rightBoundary -> "right"
-            downPosition.x < leftBoundary -> "left"
-            else -> "center"
+          val target = TapZones.classifyTap(downPosition.x, downPosition.y, size.width.toFloat(), size.height.toFloat(), tapZoneConfig)
+          val region = when (target.region) {
+            TapRegion.Right -> "right"
+            TapRegion.Left -> "left"
+            TapRegion.Center -> "center"
           }
 
           // Track for potential drag
@@ -218,7 +220,7 @@ fun GestureHandler(
               (pointer.position.y - downPosition.y) * (pointer.position.y - downPosition.y)
             )
 
-            if (distance > 10f) {
+            if (distance > touchSlop) {
               isDrag = true
               // Don't consume - let other pointer inputs handle drag gestures
             }
@@ -310,14 +312,17 @@ fun GestureHandler(
                       viewModel.handleCenterDoubleTap()
                     }
                   }
-                } else if (tapCount == 0 || timeSinceLastTap >= doubleTapTimeout) {
-                  // Single tap or timed out - start new tap sequence
+                } else {
+                  // Start a new tap sequence. A quick tap in another region (or right after a
+                  // double tap) used to be dropped here; it now replaces the pending single tap.
                   tapCount = 1
+                  tapSequence++
                   lastTapTime = downTime
                   lastTapPosition = downPosition
                   lastTapRegion = region
                   pendingSingleTapRegion = region
                   pendingSingleTapPosition = downPosition
+                  pendingSingleTapAction = target.singleTap
                   wasConsumedByTapGesture = true
                   pointer.consume()
                   // Don't execute single tap action yet - wait to see if second tap comes
@@ -328,6 +333,7 @@ fun GestureHandler(
           } while (event.changes.any { it.pressed })
         }
       }
+      .padding(horizontal = 48.dp, vertical = 48.dp)
       .pointerInput(areControlsLocked, multipleSpeedGesture, brightnessGesture, volumeGesture) {
         if ((!brightnessGesture && !volumeGesture && multipleSpeedGesture <= 0f) || areControlsLocked) return@pointerInput
 

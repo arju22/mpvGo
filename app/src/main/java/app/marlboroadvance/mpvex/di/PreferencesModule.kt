@@ -11,6 +11,7 @@ import app.marlboroadvance.mpvex.preferences.GesturePreferences
 import app.marlboroadvance.mpvex.preferences.PlayerPreferences
 import app.marlboroadvance.mpvex.preferences.SettingsManager
 import app.marlboroadvance.mpvex.preferences.SubtitlesPreferences
+import app.marlboroadvance.mpvex.preferences.TapZonePreferences
 import app.marlboroadvance.mpvex.preferences.preference.AndroidPreferenceStore
 import app.marlboroadvance.mpvex.preferences.preference.PreferenceStore
 import org.koin.android.ext.koin.androidContext
@@ -25,6 +26,7 @@ val PreferencesModule =
     single { AppearancePreferences(get()) }
     singleOf(::PlayerPreferences)
     singleOf(::GesturePreferences)
+    singleOf(::TapZonePreferences)
     singleOf(::DecoderPreferences)
     singleOf(::SubtitlesPreferences)
     singleOf(::AudioPreferences)
