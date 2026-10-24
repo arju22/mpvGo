@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -143,23 +144,29 @@ class PlayerViewModel(
 
   val subtitleTracks: StateFlow<List<TrackNode>> =
     MPVLib.propNode["track-list"]
-      .map { node ->
-        node?.toObject<List<TrackNode>>(json)?.filter { it.isSubtitle }?.toImmutableList()
-          ?: persistentListOf()
+      .mapNotNull { node ->
+        runCatching {
+          node?.toObject<List<TrackNode>>(json)?.filter { it.isSubtitle }?.toImmutableList()
+            ?: persistentListOf()
+        }.onFailure { Log.e(TAG, "Failed to parse track-list", it) }.getOrNull()
       }.stateIn(viewModelScope, SharingStarted.Lazily, persistentListOf())
 
   val audioTracks: StateFlow<List<TrackNode>> =
     MPVLib.propNode["track-list"]
-      .map { node ->
-        node?.toObject<List<TrackNode>>(json)?.filter { it.isAudio }?.toImmutableList()
-          ?: persistentListOf()
+      .mapNotNull { node ->
+        runCatching {
+          node?.toObject<List<TrackNode>>(json)?.filter { it.isAudio }?.toImmutableList()
+            ?: persistentListOf()
+        }.onFailure { Log.e(TAG, "Failed to parse track-list", it) }.getOrNull()
       }.stateIn(viewModelScope, SharingStarted.Lazily, persistentListOf())
 
   val chapters: StateFlow<List<dev.vivvvek.seeker.Segment>> =
     MPVLib.propNode["chapter-list"]
-      .map { node ->
-        node?.toObject<List<ChapterNode>>(json)?.map { it.toSegment() }?.toImmutableList()
-          ?: persistentListOf()
+      .mapNotNull { node ->
+        runCatching {
+          node?.toObject<List<ChapterNode>>(json)?.map { it.toSegment() }?.toImmutableList()
+            ?: persistentListOf()
+        }.onFailure { Log.e(TAG, "Failed to parse chapter-list", it) }.getOrNull()
       }.stateIn(viewModelScope, SharingStarted.Lazily, persistentListOf())
 
   // UI state

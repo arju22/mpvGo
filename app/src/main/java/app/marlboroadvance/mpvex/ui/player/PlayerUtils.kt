@@ -10,6 +10,7 @@ import app.marlboroadvance.mpvex.ui.player.PlayerActivity.Companion.TAG
 import `is`.xyz.mpv.MPVNode
 import `is`.xyz.mpv.Utils
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
 import java.io.File
 
 /**
@@ -247,10 +248,8 @@ fun sanitizeJsonString(jsonString: String): String {
  * Deserializes MPV's native node structure to Kotlin data classes.
  * MPV uses C-style tree structures (MPVNode) which we convert to typed objects.
  * 
- * Sanitizes the JSON before parsing to handle invalid escape sequences from MPV.
+ * Converts the node tree to a JsonElement directly (see [toJsonElement]) instead of
+ * round-tripping through [MPVNode.toJson], which does not escape backslashes (#755).
  */
-inline fun <reified T> MPVNode.toObject(json: Json): T {
-  val jsonString = toJson()
-  val sanitizedJson = sanitizeJsonString(jsonString)
-  return json.decodeFromString<T>(sanitizedJson)
-}
+inline fun <reified T> MPVNode.toObject(json: Json): T =
+  json.decodeFromJsonElement<T>(toJsonElement())
