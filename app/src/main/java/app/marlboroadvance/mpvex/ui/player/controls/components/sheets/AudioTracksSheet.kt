@@ -66,7 +66,7 @@ fun AudioTracksSheet(
     },
     track = {
       AudioTrackRow(
-        title = getTrackTitle(it),
+        title = if (it.external == true) getTrackTitle(it) else AudioTrackLabel.format(it),
         details = getAudioTrackDetails(it),
         isSelected = it.isSelected,
         onClick = { onSelect(it) },
