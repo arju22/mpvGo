@@ -15,6 +15,7 @@ import app.marlboroadvance.mpvex.utils.media.MediaLibraryEvents
 import app.marlboroadvance.mpvex.utils.media.MetadataRetrieval
 import app.marlboroadvance.mpvex.utils.storage.FileTypeUtils
 import app.marlboroadvance.mpvex.repository.VideoStatCache
+import app.marlboroadvance.mpvex.utils.media.MissingMediaScan
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -139,8 +140,9 @@ class VideoListViewModel(
     cachedFolderLastModified = 0L // Force full stat refresh
     VideoStatCache.invalidate(bucketId)
     _isLoading.value = true
+    // mpvGo: index only this folder's videos that MediaStore doesn't have yet, then reload (was: rescan every file).
     viewModelScope.launch(Dispatchers.IO) {
-      triggerMediaScan()
+      MissingMediaScan.indexMissingVideos(getApplication(), bucketId)
       loadVideos(isBackgroundRefresh = false)
     }
   }

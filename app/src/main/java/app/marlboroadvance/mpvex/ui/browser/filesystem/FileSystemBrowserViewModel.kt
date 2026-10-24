@@ -180,65 +180,14 @@ class FileSystemBrowserViewModel(
     // Clear all caches to force fresh data from filesystem
     MediaFileRepository.clearCache()
     
-    // Trigger media scan to ensure MediaStore is up-to-date
-    triggerMediaScan()
-    
-    // Wait for MediaStore to update, then reload
-    viewModelScope.launch(Dispatchers.IO) {
-      delay(1500) // Give MediaStore time to index
-      loadCurrentDirectory()
-    }
-  }
-  
-  /**
-   * Trigger a media scan for the current directory
-   */
-  private fun triggerMediaScan() {
-    try {
-      val path = _currentPath.value
-      
-      // Skip if we're at storage roots marker
-      if (path == STORAGE_ROOTS_MARKER) {
-        return
+    // mpvGo: the browser lists the filesystem directly; just index this folder's not-yet-indexed videos
+    // in the background (was: MediaScanner pass over every file + fixed 1.5 s wait).
+    loadCurrentDirectory()
+    val path = _currentPath.value
+    if (path != STORAGE_ROOTS_MARKER) {
+      viewModelScope.launch(Dispatchers.IO) {
+        app.marlboroadvance.mpvex.utils.media.MissingMediaScan.indexMissingVideos(getApplication(), path)
       }
-      
-      val folder = File(path)
-      
-      if (folder.exists() && folder.isDirectory) {
-        // Scan all video files in the folder
-        val videoFiles = folder.listFiles { file ->
-          file.isFile && FileTypeUtils.isVideoFile(file)
-        }
-        
-        if (!videoFiles.isNullOrEmpty()) {
-          val filePaths = videoFiles.map { it.absolutePath }.toTypedArray()
-          
-          android.media.MediaScannerConnection.scanFile(
-            getApplication(),
-            filePaths,
-            null, // Let MediaScanner detect MIME types
-          ) { scanPath, uri ->
-            Log.d(TAG, "Media scan completed for: $scanPath -> $uri")
-          }
-          
-          Log.d(TAG, "Triggered media scan for ${filePaths.size} files in: $path")
-        } else {
-          Log.d(TAG, "No video files found in folder: $path")
-        }
-      } else {
-        // Fallback to scanning external storage root
-        val externalStorage = android.os.Environment.getExternalStorageDirectory()
-        android.media.MediaScannerConnection.scanFile(
-          getApplication(),
-          arrayOf(externalStorage.absolutePath),
-          null,
-        ) { scanPath, uri ->
-          Log.d(TAG, "Media scan completed for: $scanPath -> $uri")
-        }
-        Log.d(TAG, "Triggered media scan for: ${externalStorage.absolutePath}")
-      }
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to trigger media scan", e)
     }
   }
 

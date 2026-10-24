@@ -267,30 +267,9 @@ class FolderListViewModel(
     Log.d(TAG, "Refreshing folder list")
     _isLoading.value = true
     MediaFileRepository.clearCache()
+    // mpvGo: no forced whole-storage MediaScanner pass here (battery); MediaProvider indexes new files itself.
     viewModelScope.launch(Dispatchers.IO) {
-      triggerMediaScan()
       loadVideoFolders()
-    }
-  }
-  
-  /**
-   * Trigger a comprehensive media scan to update MediaStore
-   */
-  private suspend fun triggerMediaScan() = withContext(Dispatchers.IO) {
-    try {
-      val externalStorage = android.os.Environment.getExternalStorageDirectory()
-      
-      android.media.MediaScannerConnection.scanFile(
-        getApplication(),
-        arrayOf(externalStorage.absolutePath),
-        null, // Let MediaScanner detect all media types
-      ) { path, uri ->
-        Log.d(TAG, "Media scan completed for: $path -> $uri")
-      }
-      
-      Log.d(TAG, "Triggered comprehensive media scan")
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to trigger media scan", e)
     }
   }
 
