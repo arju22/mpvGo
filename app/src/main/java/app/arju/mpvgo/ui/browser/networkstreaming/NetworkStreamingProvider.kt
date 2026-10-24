@@ -19,10 +19,14 @@ class NetworkStreamingProvider : ContentProvider() {
   companion object {
     private const val TAG = "NetworkStreamingProvider"
 
+    private val streamExecutor = java.util.concurrent.Executors.newCachedThreadPool { r ->
+      Thread(r, "mpvgo-netstream").apply { isDaemon = true }
+    }
+
     // Cache for active connections
-    private val connectionCache = mutableMapOf<Long, NetworkConnection>()
+    private val connectionCache = java.util.concurrent.ConcurrentHashMap<Long, NetworkConnection>()
     private val clientCache =
-      mutableMapOf<Long, app.arju.mpvgo.ui.browser.networkstreaming.clients.NetworkClient>()
+      java.util.concurrent.ConcurrentHashMap<Long, app.arju.mpvgo.ui.browser.networkstreaming.clients.NetworkClient>()
 
     fun getUri(context: android.content.Context, connectionId: Long, filePath: String): Uri {
       val authority = "${context.packageName}.networkstreaming"
@@ -108,8 +112,8 @@ class NetworkStreamingProvider : ContentProvider() {
       val readFd = pipe[0]
       val writeFd = pipe[1]
 
-      // Stream the file in a background thread
-      Thread {
+      // Stream the file on a shared background pool (mpvGo: reuse threads instead of one per open)
+      streamExecutor.execute {
         try {
           // Ensure connected
           runBlocking {
@@ -123,7 +127,7 @@ class NetworkStreamingProvider : ContentProvider() {
             client.getFileStream(filePath).onSuccess { inputStream ->
               ParcelFileDescriptor.AutoCloseOutputStream(writeFd).use { output ->
                 inputStream.use { input ->
-                  val buffer = ByteArray(8192)
+                  val buffer = ByteArray(65536)
                   var bytesRead: Int
 
                   while (input.read(buffer).also { bytesRead = it } != -1) {
@@ -142,7 +146,7 @@ class NetworkStreamingProvider : ContentProvider() {
             // Ignore
           }
         }
-      }.start()
+      }
 
 
       return readFd

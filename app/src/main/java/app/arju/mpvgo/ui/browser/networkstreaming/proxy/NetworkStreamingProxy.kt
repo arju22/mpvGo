@@ -14,7 +14,12 @@ import com.hierynomus.smbj.connection.Connection
 import com.hierynomus.smbj.session.Session
 import com.hierynomus.smbj.share.DiskShare
 import fi.iki.elonen.NanoHTTPD
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.InputStream
 import java.util.EnumSet
 import java.util.concurrent.ConcurrentHashMap
@@ -28,6 +33,8 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
 
   companion object {
     private const val TAG = "NetworkStreamingProxy"
+    private const val DISCONNECT_TIMEOUT_MS = 5_000L
+    private val disconnectScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Volatile
     private var instance: NetworkStreamingProxy? = null
@@ -94,9 +101,10 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
    */
   fun unregisterStream(streamId: String) {
     activeStreams.remove(streamId)?.let { streamInfo ->
-      runBlocking {
+      // mpvGo: may be called from the main thread (lifecycle onDestroy); never block it on network I/O
+      disconnectScope.launch {
         try {
-          streamInfo.client.disconnect()
+          withTimeoutOrNull(DISCONNECT_TIMEOUT_MS) { streamInfo.client.disconnect() }
         } catch (e: Exception) {
           // Ignore disconnect errors
         }
@@ -870,7 +878,7 @@ class NetworkStreamingProxy private constructor() : NanoHTTPD("127.0.0.1", 0) {
 
     if (stream != null && offset > 0) {
       var remaining = offset
-      val buffer = ByteArray(8192)
+      val buffer = ByteArray(65536)
 
       while (remaining > 0) {
         val toSkip = minOf(remaining, buffer.size.toLong()).toInt()
