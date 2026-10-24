@@ -24,27 +24,8 @@ jobs:
       - name: Read mpvGo version
         run: echo "VERSION_NAME=$(grep '^VERSION_NAME=' version.properties | cut -d= -f2 | tr -d '[:space:]')" >> $GITHUB_ENV
 
-      - name: Setup JDK 17
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: 17
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-
-      - name: Build standard release with Gradle
-        run: ./gradlew assembleStandardRelease --stacktrace
-
-      - name: Build Play Store release with Gradle
-        run: ./gradlew assemblePlaystoreRelease --stacktrace
-
-      - name: Build F-Droid release with Gradle
-        run: ./gradlew assembleFdroidRelease --stacktrace
-
       - name: Get tag name
-        if: startsWith(github.ref, 'refs/tags/')
-        run: echo "VERSION_TAG=$(basename $GITHUB_REF)" >> $GITHUB_ENV
+        run: echo "VERSION_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       - name: Check tag matches version.properties
         run: |
@@ -54,201 +35,74 @@ jobs:
             exit 1
           fi
 
-      - name: Verify build output
-        run: |
-          STANDARD_RELEASE_DIR="app/build/outputs/apk/standard/release"
-          PLAYSTORE_RELEASE_DIR="app/build/outputs/apk/playstore/release"
-          FDROID_RELEASE_DIR="app/build/outputs/apk/fdroid/release"
-          
-          if [ ! -d "$STANDARD_RELEASE_DIR" ]; then
-            echo "Standard release directory does not exist!"
-            find app/build/outputs -name "*.apk" -type f
-            exit 1
-          fi
-          
-          if [ ! -d "$PLAYSTORE_RELEASE_DIR" ]; then
-            echo "Play Store release directory does not exist!"
-            find app/build/outputs -name "*.apk" -type f
-            exit 1
-          fi
-          
-          if [ ! -d "$FDROID_RELEASE_DIR" ]; then
-            echo "F-Droid release directory does not exist!"
-            find app/build/outputs -name "*.apk" -type f
-            exit 1
-          fi
-          
-          echo "Standard release APKs:"
-          ls -lah "$STANDARD_RELEASE_DIR"
-          echo "Play Store release APKs:"
-          ls -lah "$PLAYSTORE_RELEASE_DIR"
-          echo "F-Droid release APKs:"
-          ls -lah "$FDROID_RELEASE_DIR"
+      - name: Setup JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: 17
 
-      - name: Sign APKs
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      # mpvGo ships only the standard flavor; playstore/fdroid stay defined but are not released.
+      - name: Build standard release with Gradle
+        run: ./gradlew assembleStandardRelease --stacktrace
+
+      - name: Sign APK
         run: |
           set -e
-          STANDARD_RELEASE_DIR="app/build/outputs/apk/standard/release"
-          PLAYSTORE_RELEASE_DIR="app/build/outputs/apk/playstore/release"
-          FDROID_RELEASE_DIR="app/build/outputs/apk/fdroid/release"
-          
+          RELEASE_DIR="app/build/outputs/apk/standard/release"
+          unsigned="$RELEASE_DIR/mpvGo-${VERSION_NAME}-standard-arm64-v8a-release-unsigned.apk"
+          if [ ! -f "$unsigned" ]; then
+            echo "::error::Unsigned standard APK not found"
+            find app/build/outputs -name "*.apk" -type f
+            exit 1
+          fi
+
           echo "${{ secrets.SIGNING_KEYSTORE }}" | base64 -d > release.keystore
-          
-          # Sign standard APKs
-          APK_COUNT=$(find "$STANDARD_RELEASE_DIR" -name "mpvGo-${{ env.VERSION_NAME }}-standard-*-release-unsigned.apk" -type f | wc -l)
-          if [ "$APK_COUNT" -eq 0 ]; then
-            echo "No unsigned standard APK files found"
-            ls -lah "$STANDARD_RELEASE_DIR"
-            rm release.keystore
-            exit 1
-          fi
-          
-          find "$STANDARD_RELEASE_DIR" -name "mpvGo-${{ env.VERSION_NAME }}-standard-*-release-unsigned.apk" -type f | while read -r apk; do
-            signed_apk="${apk/-unsigned/}"
-          
-            $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
-              --ks release.keystore \
-              --ks-key-alias "${{ secrets.SIGNING_KEY_ALIAS }}" \
-              --ks-pass "pass:${{ secrets.SIGNING_STORE_PASSWORD }}" \
-              --key-pass "pass:${{ secrets.KEY_PASSWORD }}" \
-              --out "$signed_apk" \
-              "$apk"
-          
-            $ANDROID_HOME/build-tools/34.0.0/apksigner verify "$signed_apk"
-            rm "$apk"
-          done
-          
-          # Sign Play Store APK (arm64-v8a only)
-          PLAYSTORE_APK="$PLAYSTORE_RELEASE_DIR/mpvGo-${{ env.VERSION_NAME }}-playstore-arm64-v8a-release-unsigned.apk"
-          if [ ! -f "$PLAYSTORE_APK" ]; then
-            echo "No unsigned Play Store arm64-v8a APK found"
-            ls -lah "$PLAYSTORE_RELEASE_DIR"
-            rm release.keystore
-            exit 1
-          fi
-          
-          SIGNED_PLAYSTORE_APK="${PLAYSTORE_APK/-unsigned/}"
+          signed="mpvGo-${VERSION_TAG}.apk"
           $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
             --ks release.keystore \
             --ks-key-alias "${{ secrets.SIGNING_KEY_ALIAS }}" \
             --ks-pass "pass:${{ secrets.SIGNING_STORE_PASSWORD }}" \
             --key-pass "pass:${{ secrets.KEY_PASSWORD }}" \
-            --out "$SIGNED_PLAYSTORE_APK" \
-            "$PLAYSTORE_APK"
-          
-          $ANDROID_HOME/build-tools/34.0.0/apksigner verify "$SIGNED_PLAYSTORE_APK"
-          rm "$PLAYSTORE_APK"
-          
-          # Sign F-Droid APKs
-          APK_COUNT=$(find "$FDROID_RELEASE_DIR" -name "mpvGo-${{ env.VERSION_NAME }}-fdroid-*-release-unsigned.apk" -type f | wc -l)
-          if [ "$APK_COUNT" -eq 0 ]; then
-            echo "No unsigned F-Droid APK files found"
-            ls -lah "$FDROID_RELEASE_DIR"
-            rm release.keystore
-            exit 1
-          fi
-          
-          find "$FDROID_RELEASE_DIR" -name "mpvGo-${{ env.VERSION_NAME }}-fdroid-*-release-unsigned.apk" -type f | while read -r apk; do
-            signed_apk="${apk/-unsigned/}"
-          
-            $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
-              --ks release.keystore \
-              --ks-key-alias "${{ secrets.SIGNING_KEY_ALIAS }}" \
-              --ks-pass "pass:${{ secrets.SIGNING_STORE_PASSWORD }}" \
-              --key-pass "pass:${{ secrets.KEY_PASSWORD }}" \
-              --out "$signed_apk" \
-              "$apk"
-          
-            $ANDROID_HOME/build-tools/34.0.0/apksigner verify "$signed_apk"
-            rm "$apk"
-          done
-          
+            --out "$signed" \
+            "$unsigned"
           rm release.keystore
-          echo "Standard APKs:"
-          ls -lh "$STANDARD_RELEASE_DIR"/mpvGo-${{ env.VERSION_NAME }}-standard-*-release.apk
-          echo "Play Store APK:"
-          ls -lh "$PLAYSTORE_RELEASE_DIR"/mpvGo-${{ env.VERSION_NAME }}-playstore-arm64-v8a-release.apk
-          echo "F-Droid APKs:"
-          ls -lh "$FDROID_RELEASE_DIR"/mpvGo-${{ env.VERSION_NAME }}-fdroid-*-release.apk
 
-      - name: Copy build artifacts
+          $ANDROID_HOME/build-tools/34.0.0/apksigner verify --print-certs "$signed"
+          echo "apk_sha256=$(sha256sum "$signed" | awk '{ print $1 }')" >> "$GITHUB_ENV"
+          ls -lh "$signed"
+
+      - name: Release notes from CHANGELOG.md
         run: |
-          set -euo pipefail
-          
-          # Standard flavor APKs
-          standard_apks=("arm64-v8a")
-          for abi in "${standard_apks[@]}"; do
-            src="app/build/outputs/apk/standard/release/mpvGo-${{ env.VERSION_NAME }}-standard-${abi}-release.apk"
-            dst="mpvGo-${VERSION_TAG}.apk"
-            if [ ! -f "$src" ]; then
-              echo "::error file=$src::Signed standard APK for $abi was not found"
-              exit 1
-            fi
-            cp "$src" "$dst"
-            checksum=$(sha256sum "$dst" | awk '{ print $1 }')
-            varname="apk_${abi//-/_}_sha256"
-            echo "$varname=$checksum" >> "$GITHUB_ENV"
-          done
-          
-          # Play Store flavor APK (arm64-v8a only)
-          playstore_src="app/build/outputs/apk/playstore/release/mpvGo-${{ env.VERSION_NAME }}-playstore-arm64-v8a-release.apk"
-          playstore_dst="mpvGo-${VERSION_TAG}-playstore.apk"
-          if [ ! -f "$playstore_src" ]; then
-            echo "::error file=$playstore_src::Signed Play Store APK was not found"
-            exit 1
+          awk -v v="$VERSION_NAME" '
+            $0 ~ "^## \\[" v "\\]" { on=1; next }
+            on && /^## / { exit }
+            on { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "See CHANGELOG.md for details." > release-notes.md
           fi
-          cp "$playstore_src" "$playstore_dst"
-          playstore_checksum=$(sha256sum "$playstore_dst" | awk '{ print $1 }')
-          echo "apk_playstore_sha256=$playstore_checksum" >> "$GITHUB_ENV"
-          
-          # F-Droid flavor APK (only arm64-v8a, same package name)
-          fdroid_src="app/build/outputs/apk/fdroid/release/mpvGo-${{ env.VERSION_NAME }}-fdroid-arm64-v8a-release.apk"
-          fdroid_dst="mpvGo-${VERSION_TAG}-fdroid.apk"
-          if [ ! -f "$fdroid_src" ]; then
-            echo "::error file=$fdroid_src::Signed F-Droid APK was not found"
-            exit 1
-          fi
-          cp "$fdroid_src" "$fdroid_dst"
-          fdroid_checksum=$(sha256sum "$fdroid_dst" | awk '{ print $1 }')
-          echo "apk_fdroid_sha256=$fdroid_checksum" >> "$GITHUB_ENV"
-          
-          ls -lah mpvGo-*.apk
+          {
+            echo
+            echo "---"
+            echo "### Checksum"
+            echo
+            echo "| File | SHA-256 |"
+            echo "| ---- | ------- |"
+            echo "| mpvGo-${VERSION_TAG}.apk (arm64-v8a, Android 14+) | ${apk_sha256} |"
+          } >> release-notes.md
+          cat release-notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION_TAG }}
           name: mpvGo ${{ env.VERSION_TAG }}
-          body: |
-            ---
-            ### Checksums
-
-            | Variant | SHA-256 |
-            | ------- | ------- |
-            | arm64-v8a | ${{ env.apk_arm64_v8a_sha256 }} |
-            | Play Store | ${{ env.apk_playstore_sha256 }} |
-            | F-Droid | ${{ env.apk_fdroid_sha256 }} |
-            
-            ---
-            ### Play Store Version
-            
-            The Play Store variant (`mpvGo-${{ env.VERSION_TAG }}-playstore.apk`) is specifically built for Google Play Store:
-            - ARM64-v8a architecture only, Android 14+
-            - Removed automatic update feature (handled by Play Store)
-            - Minimal permissions for maximum compatibility
-            
-            ---
-            ### F-Droid Version
-            
-            The F-Droid variant (`mpvGo-${{ env.VERSION_TAG }}-fdroid.apk`) is specifically built for F-Droid compatibility:
-            - Removed automatic update feature
-            - Removed install packages permission
-            - ARM64-v8a architecture only
-          files: |
-            mpvGo-${{ env.VERSION_TAG }}.apk
-            mpvGo-${{ env.VERSION_TAG }}-playstore.apk
-            mpvGo-${{ env.VERSION_TAG }}-fdroid.apk
-          draft: true
-          prerelease: false
+          body_path: release-notes.md
+          files: mpvGo-${{ env.VERSION_TAG }}.apk
+          draft: false
+          prerelease: ${{ contains(env.VERSION_TAG, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

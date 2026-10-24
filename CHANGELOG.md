@@ -9,6 +9,12 @@ This file is updated with every batch of changes and before every release push.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-25
+
+First public mpvGo release. mpvGo is now independent of mpvEx: package `app.arju.mpvgo`,
+own database, backups and notification channel. Data from 0.1.0 test installs is not carried
+over.
+
 ### Fixed
 - Natural sort no longer crashes or misorders names with very long numbers or leading zeros
   ([#861](https://github.com/marlboro-advance/mpvEx/issues/861),
@@ -48,6 +54,7 @@ This file is updated with every batch of changes and before every release push.
   and return to their saved position when the controls hide.
 - JVM unit tests (JUnit 4, kotlinx-coroutines-test) for sorting, track parsing, resume,
   tap zones, audio labels and subtitle gestures.
+- GitHub releases are signed with the mpvGo release key.
 
 ### Changed
 - Battery: the playback position is polled only while the controls or seekbar are visible.
@@ -94,7 +101,6 @@ This file is updated with every batch of changes and before every release push.
 - Built-in web browser (home-screen tile, video detection, ad blocking).
 - Downloads (HTTP/HLS) with a Downloads page.
 - Donate links.
-- Release signing for GitHub releases.
 - Rebranded documentation.
 
 ## [0.1.0]
