@@ -22,6 +22,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Read mpvGo version
+        run: echo "VERSION_NAME=$(grep '^VERSION_NAME=' version.properties | cut -d= -f2 | tr -d '[:space:]')" >> $GITHUB_ENV
+
       - name: Setup JDK 17
         uses: actions/setup-java@v5
         with:
@@ -42,7 +45,7 @@ jobs:
           
           echo "${{ secrets.SIGNING_KEYSTORE }}" | base64 -d > release.keystore
           
-          APK_COUNT=$(find "$PREVIEW_DIR" -name "app-standard-*-preview-unsigned.apk" -type f | wc -l)
+          APK_COUNT=$(find "$PREVIEW_DIR" -name "mpvGo-${{ env.VERSION_NAME }}-standard-*-preview-unsigned.apk" -type f | wc -l)
           if [ "$APK_COUNT" -eq 0 ]; then
             echo "No unsigned preview APK files found"
             ls -lah "$PREVIEW_DIR"
@@ -50,7 +53,7 @@ jobs:
             exit 1
           fi
           
-          find "$PREVIEW_DIR" -name "app-standard-*-preview-unsigned.apk" -type f | while read -r apk; do
+          find "$PREVIEW_DIR" -name "mpvGo-${{ env.VERSION_NAME }}-standard-*-preview-unsigned.apk" -type f | while read -r apk; do
             signed_apk="${apk/-unsigned/}"
           
             $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
@@ -66,7 +69,7 @@ jobs:
           done
           
           rm release.keystore
-          ls -lh "$PREVIEW_DIR"/app-standard-*-preview.apk
+          ls -lh "$PREVIEW_DIR"/mpvGo-${{ env.VERSION_NAME }}-standard-*-preview.apk
 
       - name: Copy build artifacts
         id: set_commit
@@ -83,8 +86,8 @@ jobs:
           declare -a file_sizes=()
           
           for arch in "${apks[@]}"; do
-            src="app/build/outputs/apk/standard/preview/app-standard-${arch}-preview.apk"
-            dest="output/mpvGo-preview-r${commit_count}-${arch}.apk"
+            src="app/build/outputs/apk/standard/preview/mpvGo-${{ env.VERSION_NAME }}-standard-${arch}-preview.apk"
+            dest="output/mpvGo-v${{ env.VERSION_NAME }}-r${commit_count}.apk"
             cp "$src" "$dest"
           
             # Get file size in human-readable format
@@ -132,7 +135,7 @@ jobs:
             <p>Build time: ${build_time}</p>
             <p>Download the latest signed APKs:</p>
             <ul>
-              <li><a href='mpvGo-preview-r${commit_count}-arm64-v8a.apk'>arm64-v8a (${{ needs.build.outputs.arm64-v8a_size }})</a></li>
+              <li><a href='mpvGo-v${{ env.VERSION_NAME }}-r${commit_count}.apk'>mpvGo v${{ env.VERSION_NAME }} r${commit_count} (${{ needs.build.outputs.arm64-v8a_size }})</a></li>
             </ul>
             <p class='note'>Built automatically from the <code>dev</code> branch.</p>
           </body>

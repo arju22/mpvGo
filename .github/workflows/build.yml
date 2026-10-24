@@ -15,6 +15,9 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Read mpvGo version
+        run: echo "VERSION_NAME=$(grep '^VERSION_NAME=' version.properties | cut -d= -f2 | tr -d '[:space:]')" >> $GITHUB_ENV
+
       - name: Generate short SHA
         id: set-short-sha
         run: echo "SHORT_SHA=${GITHUB_SHA:0:7}" >> $GITHUB_ENV
@@ -35,6 +38,6 @@ jobs:
       - name: Upload app-arm64-v8a Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-standard-arm64-v8a-release-unsigned-${{ env.SHORT_SHA }}
-          path: app/build/outputs/apk/standard/release/app-standard-arm64-v8a-release-unsigned.apk
+          name: mpvGo-${{ env.VERSION_NAME }}-standard-arm64-v8a-release-unsigned-${{ env.SHORT_SHA }}
+          path: app/build/outputs/apk/standard/release/mpvGo-${{ env.VERSION_NAME }}-standard-arm64-v8a-release-unsigned.apk
           if-no-files-found: warn

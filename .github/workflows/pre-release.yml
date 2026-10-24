@@ -19,6 +19,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Read mpvGo version
+        run: echo "VERSION_NAME=$(grep '^VERSION_NAME=' version.properties | cut -d= -f2 | tr -d '[:space:]')" >> $GITHUB_ENV
+
       - name: Setup JDK 17
         uses: actions/setup-java@v5
         with:
@@ -34,6 +37,14 @@ jobs:
       - name: Get tag name
         if: startsWith(github.ref, 'refs/tags/')
         run: echo "VERSION_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Check tag matches version.properties
+        run: |
+          base="${VERSION_TAG#v}"; base="${base%%-*}"
+          if [ "$base" != "$VERSION_NAME" ]; then
+            echo "::error::Tag $VERSION_TAG does not match VERSION_NAME=$VERSION_NAME in version.properties"
+            exit 1
+          fi
 
       - name: Verify build output
         run: |
@@ -52,7 +63,7 @@ jobs:
           
           echo "${{ secrets.SIGNING_KEYSTORE }}" | base64 -d > release.keystore
           
-          APK_COUNT=$(find "$PREVIEW_DIR" -name "app-standard-*-preview-unsigned.apk" -type f | wc -l)
+          APK_COUNT=$(find "$PREVIEW_DIR" -name "mpvGo-${{ env.VERSION_NAME }}-standard-*-preview-unsigned.apk" -type f | wc -l)
           if [ "$APK_COUNT" -eq 0 ]; then
             echo "No unsigned preview APK files found"
             ls -lah "$PREVIEW_DIR"
@@ -60,7 +71,7 @@ jobs:
             exit 1
           fi
           
-          find "$PREVIEW_DIR" -name "app-standard-*-preview-unsigned.apk" -type f | while read -r apk; do
+          find "$PREVIEW_DIR" -name "mpvGo-${{ env.VERSION_NAME }}-standard-*-preview-unsigned.apk" -type f | while read -r apk; do
             signed_apk="${apk/-unsigned/}"
           
             $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
@@ -76,7 +87,7 @@ jobs:
           done
           
           rm release.keystore
-          ls -lh "$PREVIEW_DIR"/app-standard-*-preview.apk
+          ls -lh "$PREVIEW_DIR"/mpvGo-${{ env.VERSION_NAME }}-standard-*-preview.apk
 
       - name: Copy built artifacts
         run: |
@@ -85,8 +96,8 @@ jobs:
           declare -a apks=("arm64-v8a")
 
           for abi in "${apks[@]}"; do
-            src="app/build/outputs/apk/standard/preview/app-standard-${abi}-preview.apk"
-            dest="preview/mpvGo-preview-${abi}-${{ env.VERSION_TAG }}.apk"
+            src="app/build/outputs/apk/standard/preview/mpvGo-${{ env.VERSION_NAME }}-standard-${abi}-preview.apk"
+            dest="preview/mpvGo-${{ env.VERSION_TAG }}.apk"
             if [ -f "$src" ]; then
               cp "$src" "$dest"
               sha=$(sha256sum "$dest" | awk '{ print $1 }')
@@ -106,7 +117,7 @@ jobs:
             | ------- | ------- |
             | arm64-v8a | ${{ env.apk-arm64-v8a-sha256 }} |
           files: |
-            preview/mpvGo-preview-arm64-v8a-${{ env.VERSION_TAG }}.apk
+            preview/mpvGo-${{ env.VERSION_TAG }}.apk
           draft: false
           prerelease: true
         env:

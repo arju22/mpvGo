@@ -1,4 +1,5 @@
 import com.android.build.api.variant.FilterConfiguration
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -10,6 +11,20 @@ plugins {
   alias(libs.plugins.aboutlibraries)
 }
 
+// mpvGo versioning: single source of truth in /version.properties (VERSION_NAME=MAJOR.MINOR.PATCH).
+val mpvGoVersionName: String = Properties().run {
+  rootProject.file("version.properties").inputStream().use { load(it) }
+  getProperty("VERSION_NAME").trim()
+}
+val mpvGoVersionCode: Int = mpvGoVersionName.split(".").map { it.toInt() }.let { (major, minor, patch) ->
+  require(minor < 100 && patch < 100) { "minor/patch must be < 100" }
+  major * 10000 + minor * 100 + patch
+}
+
+base {
+  archivesName.set("mpvGo-$mpvGoVersionName")
+}
+
 android {
   namespace = "app.marlboroadvance.mpvex"
   compileSdk = 37
@@ -18,15 +33,11 @@ android {
     applicationId = "io.github.arju22.mpvgo"
     minSdk = 34
     targetSdk = 36
-    versionCode = 131
-    versionName = "1.3.1"
+    versionCode = mpvGoVersionCode
+    versionName = mpvGoVersionName
 
     vectorDrawables {
       useSupportLibrary = true
-    }
-
-    ndk {
-      abiFilters += "arm64-v8a"
     }
 
     buildConfigField("String", "GIT_SHA", "\"${getCommitSha()}\"")
@@ -55,10 +66,6 @@ android {
       versionNameSuffix = "-fdroid"
       buildConfigField("boolean", "ENABLE_UPDATE_FEATURE", "false")
       buildConfigField("boolean", "SCOPED_STORAGE_ONLY", "false")
-
-      ndk {
-        abiFilters += "arm64-v8a"
-      }
     }
   }
 
