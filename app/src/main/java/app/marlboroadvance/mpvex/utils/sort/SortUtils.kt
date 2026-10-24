@@ -152,7 +152,7 @@ object SortUtils {
         when {
           numA != null && numB != null -> {
             // Both numeric
-            val cmp = numA.value.compareTo(numB.value)
+            val cmp = numA.compareTo(numB)
             if (cmp != 0) return cmp
             // Numbers equal => advance past them and continue
             ia = numA.exclusiveEndIndex
@@ -171,31 +171,31 @@ object SortUtils {
       }
     }
 
-    private data class ParsedNumber(val value: Int, val exclusiveEndIndex: Int)
+    // Digit runs are compared without parsing (#861): strip leading zeros, then shorter run is
+    // smaller, then lexical. Only ASCII digits count so the comparator stays transitive.
+    private class ParsedNumber(
+      private val s: String,
+      private val start: Int,
+      val exclusiveEndIndex: Int,
+    ) : Comparable<ParsedNumber> {
+      private val significantStart: Int =
+        (start until exclusiveEndIndex).firstOrNull { s[it] != '0' } ?: exclusiveEndIndex
+      private val length: Int get() = exclusiveEndIndex - significantStart
+
+      override fun compareTo(other: ParsedNumber): Int {
+        if (length != other.length) return length.compareTo(other.length)
+        for (k in 0 until length) {
+          val c = s[significantStart + k].compareTo(other.s[other.significantStart + k])
+          if (c != 0) return c
+        }
+        return 0
+      }
+    }
 
     private fun parseNumber(s: String, start: Int): ParsedNumber? {
       var i = start
-
-      var hasDigit = false
-
-      while (i < s.length) {
-        val c = s[i]
-        if (c.isDigit()) {
-          hasDigit = true
-          i++
-        } else {
-          break
-        }
-      }
-
-      if (!hasDigit) return null
-
-      val numStr = s.substring(start, i)
-      return try {
-        ParsedNumber(numStr.toInt(), i)
-      } catch (_: Exception) {
-        null
-      }
+      while (i < s.length && s[i] in '0'..'9') i++
+      return if (i == start) null else ParsedNumber(s, start, i)
     }
   }
 }
