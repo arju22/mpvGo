@@ -137,6 +137,8 @@ android {
   @Suppress("UnstableApiUsage")
   androidResources {
     generateLocaleConfig = true
+    // mpvGo: the app is English-only; drop library translations (AppCompat, Material, etc.)
+    localeFilters += listOf("en")
   }
 }
 
