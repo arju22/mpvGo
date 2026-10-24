@@ -1,4 +1,5 @@
 package app.arju.mpvgo.ui.browser.networkstreaming
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -77,7 +78,7 @@ object NetworkStreamingScreen : Screen {
     val viewModel: NetworkStreamingViewModel =
       viewModel(factory = NetworkStreamingViewModel.factory(context.applicationContext as android.app.Application))
 
-    val connections by viewModel.connections.collectAsState()
+    val connections by viewModel.connections.collectAsStateWithLifecycle()
     val connectionStatuses by viewModel.connectionStatuses.collectAsState()
     val browserPreferences = koinInject<app.arju.mpvgo.preferences.BrowserPreferences>()
     var showAddSheet by remember { mutableStateOf(false) }

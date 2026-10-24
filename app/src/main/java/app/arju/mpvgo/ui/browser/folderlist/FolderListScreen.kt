@@ -1,4 +1,5 @@
 package app.arju.mpvgo.ui.browser.folderlist
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import android.content.Context
 import android.content.Intent
@@ -159,7 +160,7 @@ object FolderListScreen : Screen {
     // State collection
     val videoFolders by viewModel.videoFolders.collectAsState()
     val foldersWithNewCount by viewModel.foldersWithNewCount.collectAsState()
-    val recentlyPlayedFilePath by viewModel.recentlyPlayedFilePath.collectAsState()
+    val recentlyPlayedFilePath by viewModel.recentlyPlayedFilePath.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsState()
     val scanStatus by viewModel.scanStatus.collectAsState()
     val hasCompletedInitialLoad by viewModel.hasCompletedInitialLoad.collectAsState()

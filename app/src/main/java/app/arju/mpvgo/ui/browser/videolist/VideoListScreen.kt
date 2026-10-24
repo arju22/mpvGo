@@ -1,4 +1,5 @@
 package app.arju.mpvgo.ui.browser.videolist
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import android.content.Intent
 import android.os.Environment
@@ -142,7 +143,7 @@ data class VideoListScreen(
     val videosWithPlaybackInfo by viewModel.videosWithPlaybackInfo.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val hasCompletedInitialLoad by viewModel.hasCompletedInitialLoad.collectAsState()
-    val recentlyPlayedFilePath by viewModel.recentlyPlayedFilePath.collectAsState()
+    val recentlyPlayedFilePath by viewModel.recentlyPlayedFilePath.collectAsStateWithLifecycle()
     val lastPlayedInFolderPath by viewModel.lastPlayedInFolderPath.collectAsState()
     val playlistMode by playerPreferences.playlistMode.collectAsState()
     val videosWereDeletedOrMoved by viewModel.videosWereDeletedOrMoved.collectAsState()
