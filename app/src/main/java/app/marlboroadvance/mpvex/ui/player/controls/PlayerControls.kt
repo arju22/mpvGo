@@ -264,6 +264,9 @@ fun PlayerControls(
     interactionSource = interactionSource,
   )
 
+  val subtitleLift = rememberSubtitleLiftState()
+  SubtitleLiftEffect(subtitleLift, controlsShown && !areControlsLocked, koinInject())
+
   DoubleTapToSeekOvals(doubleTapSeekAmount, seekText, showDoubleTapOvals, showSeekTime, showSeekTime, interactionSource)
 
   CompositionLocalProvider(
@@ -879,6 +882,7 @@ fun PlayerControls(
                   Modifier
                 }
               )
+              .subtitleLiftAnchor(subtitleLift, "seekbar")
               .constrainAs(seekbar) {
                 if (isPortrait) {
                   bottom.linkTo(playerPauseButton.top, spacing.small)
@@ -1087,6 +1091,7 @@ fun PlayerControls(
                   Modifier
                 }
               )
+              .subtitleLiftAnchor(subtitleLift, "bottomRight")
               .constrainAs(bottomRightControls) {
                 if (isPortrait) {
                   bottom.linkTo(parent.bottom, spacing.extraLarge)

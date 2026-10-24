@@ -97,6 +97,9 @@ fun GestureHandler(
   val doubleTapSeekAreaWidth by gesturePreferences.doubleTapSeekAreaWidth.collectAsState()
   val tapZonePreferences = koinInject<app.marlboroadvance.mpvex.preferences.TapZonePreferences>()
   val tapZoneConfig = rememberTapZoneConfig(gesturePreferences, tapZonePreferences)
+  val subtitleGestureState = remember { SubtitleGestureState() }
+  val subtitleGesturesEnabled by tapZonePreferences.subtitleGestures.collectAsState()
+  val subtitlesPreferences = koinInject<app.marlboroadvance.mpvex.preferences.SubtitlesPreferences>()
   var isDoubleTapSeeking by remember { mutableStateOf(false) }
   LaunchedEffect(seekAmount) {
     delay(800)
@@ -187,6 +190,13 @@ fun GestureHandler(
   Box(
     modifier = modifier
       .fillMaxSize()
+      .subtitleGestures(
+        subtitleGestureState,
+        subtitleGesturesEnabled && !areControlsLocked && panelShown == Panels.None,
+        subtitlesPreferences,
+        isBlocked = { isLongPressing || isDynamicSpeedControlActive || isVerticalGestureActive },
+        onSubSeek = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
+      )
       .pointerInput(areControlsLocked, doubleTapSeekAreaWidth, gesturePreferences, isVerticalGestureActive, tapZoneConfig) {
         // Isolated double-tap detection that doesn't interfere with other gestures.
         // Taps are handled edge to edge; the 48dp inset below only applies to drag gestures.
@@ -365,7 +375,7 @@ fun GestureHandler(
           val longPressDelay = 500L
           var longPressJob = coroutineScope.launch {
             delay(longPressDelay)
-            if (!longPressTriggered && paused == false) {
+            if (!longPressTriggered && paused == false && !subtitleGestureState.claimed) {
               val distance = sqrt(
                 (down.position.x - startPosition.x) * (down.position.x - startPosition.x) +
                 (down.position.y - startPosition.y) * (down.position.y - startPosition.y)
@@ -417,7 +427,7 @@ fun GestureHandler(
                   val deltaY = currentPosition.y - startPosition.y
 
                   // Determine gesture type based on initial drag direction
-                  if (gestureType == null && (abs(deltaX) > 20f || abs(deltaY) > 20f)) {
+                  if (gestureType == null && !subtitleGestureState.claimed && (abs(deltaX) > 20f || abs(deltaY) > 20f)) {
                     // Cancel long press if drag started
                     longPressJob.cancel()
 
@@ -709,7 +719,7 @@ fun GestureHandler(
                 prevMidY = midY
               } else {
                 // Activate on significant pinch movement
-                if (!gestureStarted && abs(dist - prevDist) > 5f) {
+                if (!gestureStarted && !subtitleGestureState.claimed && abs(dist - prevDist) > 5f) {
                   gestureStarted = true
                   viewModel.playerUpdate.update { PlayerUpdates.VideoZoom }
                 }
@@ -772,7 +782,7 @@ fun GestureHandler(
               val pos = change.position
 
               // Activate after 20px drag threshold
-              if (!panning) {
+              if (!panning && !subtitleGestureState.claimed) {
                 val d = sqrt((pos.x - startX).let { it * it } + (pos.y - startY).let { it * it })
                 if (d > 20f) { panning = true; prevX = pos.x; prevY = pos.y }
               }
@@ -837,6 +847,7 @@ fun GestureHandler(
                   // Only activate if this is clearly a horizontal gesture
                   // and not conflicting with other gestures
                   if (gestureType == null && 
+                      !subtitleGestureState.claimed &&
                       abs(deltaX) > 30f && 
                       abs(deltaX) > abs(deltaY) * 2f && // Must be strongly horizontal
                       timeSinceStart > 100L && // Avoid conflicts with double-tap

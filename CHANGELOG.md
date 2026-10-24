@@ -40,8 +40,14 @@ This file is updated with every batch of changes and before every release push.
   the screen always shows the controls.
 - Audio track names show the language name, codec and channels, e.g. "Hindi · AAC 5.1";
   "und" (undetermined) languages are hidden and track titles are kept.
+- MX-style subtitle gestures (Settings › Gestures › Subtitles, on by default): a gesture that
+  starts on the subtitle acts on it. Swipe left/right for the next/previous line, drag
+  up/down to move it, pinch to resize. Position and size are saved. Gestures elsewhere are
+  unchanged.
+- While the player controls are visible, subtitles move above them so they don't overlap,
+  and return to their saved position when the controls hide.
 - JVM unit tests (JUnit 4, kotlinx-coroutines-test) for sorting, track parsing, resume,
-  tap zones and audio labels.
+  tap zones, audio labels and subtitle gestures.
 
 ### Changed
 - Battery: the playback position is polled only while the controls or seekbar are visible.
@@ -57,8 +63,6 @@ This file is updated with every batch of changes and before every release push.
 
 ## Planned / requested
 
-- MX-style subtitle gestures: swipe the subtitle line for next/previous line, drag to move,
-  pinch to resize.
 - Wavy seekbar redraw cost (battery).
 - APK size quick wins (unused resources, locale filters).
 - Built-in web browser (home-screen tile, video detection, ad blocking).

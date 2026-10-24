@@ -3,7 +3,10 @@ package app.marlboroadvance.mpvex.preferences
 import app.marlboroadvance.mpvex.preferences.preference.PreferenceStore
 import app.marlboroadvance.mpvex.ui.player.controls.TapZones
 
-/** Center tap area (ellipse) and bottom strip settings, used when "single tap for center" is on. */
+/**
+ * mpvGo gesture settings: the center tap area (ellipse) and bottom strip, used when
+ * "single tap for center" is on, plus subtitle gestures.
+ */
 class TapZonePreferences(
   preferenceStore: PreferenceStore,
 ) {
@@ -12,4 +15,5 @@ class TapZonePreferences(
   val centerAreaX = preferenceStore.getInt("center_tap_area_cx", TapZones.DEFAULT_CENTER)
   val centerAreaY = preferenceStore.getInt("center_tap_area_cy", TapZones.DEFAULT_CENTER)
   val bottomStripShowsControls = preferenceStore.getBoolean("bottom_strip_shows_controls", true)
+  val subtitleGestures = preferenceStore.getBoolean("subtitle_gestures", true)
 }

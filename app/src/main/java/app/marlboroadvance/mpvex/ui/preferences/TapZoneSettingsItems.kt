@@ -59,3 +59,25 @@ fun TapZoneSettingsItems(enabled: Boolean) {
     },
   )
 }
+
+/** Settings › Gestures › Subtitles section (header + card). */
+@Composable
+fun SubtitleGestureSettingsSection() {
+  val preferences = koinInject<TapZonePreferences>()
+  val enabled by preferences.subtitleGestures.collectAsState()
+
+  PreferenceSectionHeader(title = stringResource(R.string.pref_gesture_subtitles_title))
+  PreferenceCard {
+    SwitchPreference(
+      value = enabled,
+      onValueChange = { preferences.subtitleGestures.set(it) },
+      title = { Text(stringResource(R.string.pref_subtitle_gestures_title)) },
+      summary = {
+        Text(
+          stringResource(R.string.pref_subtitle_gestures_summary),
+          color = MaterialTheme.colorScheme.outline,
+        )
+      },
+    )
+  }
+}

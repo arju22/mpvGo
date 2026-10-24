@@ -16,4 +16,7 @@
   <string name="tap_area_editor_tap_show">Single tap: show controls</string>
   <string name="tap_area_editor_tap_toggle">Single tap: show/hide controls</string>
   <string name="tap_area_editor_tap_side_suffix"> · double tap: seek</string>
+  <string name="pref_gesture_subtitles_title">Subtitles</string>
+  <string name="pref_subtitle_gestures_title">Subtitle gestures</string>
+  <string name="pref_subtitle_gestures_summary">Start on the subtitle: swipe left/right for next/previous line, drag up/down to move, pinch to resize</string>
 </resources>
