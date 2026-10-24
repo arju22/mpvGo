@@ -223,17 +223,18 @@ class RecentlyPlayedViewModel(application: Application) : AndroidViewModel(appli
 
       // If still 0, try MediaMetadataRetriever directly on the file
       if (duration <= 0L) {
+        // mpvGo: use{} releases the native retriever even when setDataSource throws
         runCatching {
-          val mmr = android.media.MediaMetadataRetriever()
-          mmr.setDataSource(file.absolutePath)
-          duration = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-          if (width == 0) {
-            width = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+          android.media.MediaMetadataRetriever().use { mmr ->
+            mmr.setDataSource(file.absolutePath)
+            duration = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            if (width == 0) {
+              width = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+            }
+            if (height == 0) {
+              height = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
+            }
           }
-          if (height == 0) {
-            height = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-          }
-          mmr.release()
         }
       }
 
@@ -405,16 +406,16 @@ class RecentlyPlayedViewModel(application: Application) : AndroidViewModel(appli
 
       if (duration <= 0L) {
         runCatching {
-          val mmr = android.media.MediaMetadataRetriever()
-          mmr.setDataSource(context, uri)
-          duration = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-          if (width == 0) {
-            width = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+          android.media.MediaMetadataRetriever().use { mmr ->
+            mmr.setDataSource(context, uri)
+            duration = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            if (width == 0) {
+              width = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+            }
+            if (height == 0) {
+              height = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
+            }
           }
-          if (height == 0) {
-            height = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-          }
-          mmr.release()
         }
       }
 
