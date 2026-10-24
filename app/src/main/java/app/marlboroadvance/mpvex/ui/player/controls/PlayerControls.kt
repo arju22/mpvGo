@@ -169,7 +169,6 @@ fun PlayerControls(
   val pausedForCache by MPVLib.propBoolean["paused-for-cache"].collectAsState()
   val paused by MPVLib.propBoolean["pause"].collectAsState()
   val duration by MPVLib.propInt["duration"].collectAsState()
-  val position by MPVLib.propInt["time-pos"].collectAsState()
   val precisePosition by viewModel.precisePosition.collectAsState()
   val preciseDuration by viewModel.preciseDuration.collectAsState()
   val playbackSpeed by MPVLib.propFloat["speed"].collectAsState()
@@ -187,6 +186,8 @@ fun PlayerControls(
   }
   val playerTimeToDisappear by playerPreferences.playerTimeToDisappear.collectAsState()
   val chapters by viewModel.chapters.collectAsState(persistentListOf())
+  // mpvGo: copy once per chapter change, not on every seekbar position tick
+  val chapterList = remember(chapters) { chapters.toImmutableList() }
   val playlistMode by playerPreferences.playlistMode.collectAsState()
     val haptic = LocalHapticFeedback.current
     
@@ -927,7 +928,7 @@ fun PlayerControls(
               playerPreferences.invertDuration.set(!invertDuration)
             },
             positionTimerOnClick = {},
-            chapters = chapters.toImmutableList(),
+            chapters = chapterList,
             paused = paused ?: false,
             seekbarStyle = seekbarStyle,
             loopStart = abLoopA?.toFloat(),
@@ -1225,7 +1226,7 @@ fun PlayerControls(
         }
       },
       chapter = chapters.getOrNull(currentChapter ?: 0),
-      chapters = chapters.toImmutableList(),
+      chapters = chapterList,
       onSeekToChapter = {
         MPVLib.setPropertyInt("chapter", it)
         viewModel.unpause()
