@@ -51,6 +51,29 @@ class SubtitleGesturesTest {
   }
 
   @Test
+  fun claimedSubtitleDragIsNeverATap() {
+    // Lifted without leaving the slop and nothing claimed: a real tap.
+    assertTrue(SubtitleGestures.isTap(movedBeyondSlop = false, subtitleClaimed = false))
+    // Moved past the slop: a drag for the other gesture handlers.
+    assertFalse(SubtitleGestures.isTap(movedBeyondSlop = true, subtitleClaimed = false))
+    // Subtitle drag/pinch claimed (12px) but stayed inside the ~21px touch slop:
+    // used to toggle the controls and lift the subtitle away from the finger.
+    assertEquals(SubtitleDragMode.Move, SubtitleGestures.dragMode(0f, -12.8f, 12f))
+    assertFalse(SubtitleGestures.isTap(movedBeyondSlop = false, subtitleClaimed = true))
+    assertFalse(SubtitleGestures.isTap(movedBeyondSlop = true, subtitleClaimed = true))
+  }
+
+  @Test
+  fun subtitleInsideBottomStripIsStillHittable() {
+    // Landscape, controls hidden, sub-pos 85: the subtitle overlaps the bottom strip that shows
+    // controls on a tap. Touches there must still reach the subtitle gestures.
+    val band = SubtitleGestures.estimateBand(w, h, 85, 34, 55, 1f, "Subtitle line", 16f)!!
+    val y = 860f
+    assertTrue(TapZones.inBottomStrip(y, h))
+    assertTrue(band.contains(w / 2, y))
+  }
+
+  @Test
   fun dragModeWaitsThenPicksDominantAxis() {
     assertEquals(SubtitleDragMode.None, SubtitleGestures.dragMode(5f, 5f, 12f))
     assertEquals(SubtitleDragMode.Seek, SubtitleGestures.dragMode(-20f, 5f, 12f))

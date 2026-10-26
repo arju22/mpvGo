@@ -13,6 +13,11 @@ This file is updated with every batch of changes and before every release push.
 - The subtitle gestures switch moved from Settings › Gestures to Settings › Subtitles
   (new "Gestures" section at the end). The saved setting is kept.
 
+### Fixed
+- Subtitle gestures: a short drag on the subtitle while the controls were hidden also counted
+  as a tap and brought up the controls, which lifted the subtitle away from the finger. A touch
+  claimed by a subtitle gesture is no longer a tap; a plain tap still toggles the controls.
+
 ## [1.0.0] - 2026-10-25
 
 First public mpvGo release. mpvGo is now independent of mpvEx: package `app.arju.mpvgo`,

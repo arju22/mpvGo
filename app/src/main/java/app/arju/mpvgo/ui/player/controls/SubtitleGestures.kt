@@ -76,6 +76,14 @@ object SubtitleGestures {
     else -> SubtitleDragMode.Move
   }
 
+  /**
+   * A lifted finger counts as a tap (toggle controls, double-tap seek...) only if it stayed within
+   * the touch slop and no subtitle gesture claimed the touch. The subtitle claims below the touch
+   * slop, so without the second check a short subtitle drag also showed the controls, which lifted
+   * the subtitle away from the finger.
+   */
+  fun isTap(movedBeyondSlop: Boolean, subtitleClaimed: Boolean): Boolean = !movedBeyondSlop && !subtitleClaimed
+
   /** Swipe left = next line (+1), swipe right = previous line (-1), like turning a page. */
   fun subSeekStep(dx: Float, threshold: Float): Int = when {
     dx <= -threshold -> 1
