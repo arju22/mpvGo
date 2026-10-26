@@ -304,8 +304,6 @@ object GesturePreferencesScreen : Screen {
             }
           }
           
-          item { SubtitleGestureSettingsSection() }
-
           item {
             PreferenceSectionHeader(title = stringResource(R.string.pref_gesture_media_title))
           }

@@ -9,6 +9,10 @@ This file is updated with every batch of changes and before every release push.
 
 ## [Unreleased]
 
+### Changed
+- The subtitle gestures switch moved from Settings › Gestures to Settings › Subtitles
+  (new "Gestures" section at the end). The saved setting is kept.
+
 ## [1.0.0] - 2026-10-25
 
 First public mpvGo release. mpvGo is now independent of mpvEx: package `app.arju.mpvgo`,

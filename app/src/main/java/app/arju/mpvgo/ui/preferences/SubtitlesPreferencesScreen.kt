@@ -334,6 +334,7 @@ object SubtitlesPreferencesScreen : Screen {
             }
           }
 
+          item { SubtitleGestureSettingsSection() }
         }
       }
     }
