@@ -17,6 +17,8 @@ This file is updated with every batch of changes and before every release push.
 - Subtitle gestures: a short drag on the subtitle while the controls were hidden also counted
   as a tap and brought up the controls, which lifted the subtitle away from the finger. A touch
   claimed by a subtitle gesture is no longer a tap; a plain tap still toggles the controls.
+- The system "Open with" chooser listed mpvGo twice ("mpvGo" and "Media Info"). Media Info no
+  longer registers for opening files or links; it is still available in the app and from Share.
 
 ## [1.0.0] - 2026-10-25
 
