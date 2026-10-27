@@ -24,6 +24,13 @@ data class SearchablePreference(
 object SearchablePreferences {
     val allPreferences: List<SearchablePreference> by lazy {
         buildList {
+            add(SearchablePreference(
+                title = "Network streaming",
+                summary = "SMB, FTP, WebDAV shares and local streams",
+                keywords = listOf("network", "smb", "ftp", "webdav", "nas", "share", "stream", "lan"),
+                category = "Browser, Downloads & Network",
+                screen = app.arju.mpvgo.library.networkstreaming.NetworkStreamingScreen,
+            ))
             // Appearance preferences
             add(SearchablePreference(
                 titleRes = R.string.pref_appearance_title,

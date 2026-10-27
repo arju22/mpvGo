@@ -9,7 +9,15 @@ This file is updated with every batch of changes and before every release push.
 
 ## [Unreleased]
 
+### Added
+- Go Browser entry points: a ringed globe in the top bar of every main tab and a globe button
+  at the bottom left of Home and Downloads. The browser itself is still a placeholder.
+- Downloads tab (replaces the Network tab), with a badge for active downloads. The list arrives
+  with the downloader.
+
 ### Changed
+- Network streaming moved out of the bottom bar. Open it from the Play button menu (new
+  "Network" item) or from the new "Browser, Downloads & Network" section at the top of Settings.
 - The subtitle gestures switch moved from Settings › Gestures to Settings › Subtitles
   (new "Gestures" section at the end). The saved setting is kept.
 

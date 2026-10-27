@@ -76,6 +76,7 @@ import app.arju.mpvgo.library.selection.rememberSelectionManager
 import app.arju.mpvgo.library.sheets.PlayLinkSheet
 import app.arju.mpvgo.library.states.EmptyState
 import app.arju.mpvgo.core.ui.LocalBackStack
+import app.arju.mpvgo.webbrowser.openGoBrowser
 import app.arju.mpvgo.core.utils.media.MediaUtils
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -197,6 +198,7 @@ object RecentlyPlayedScreen : Screen {
             onSettingsClick = {
               backStack.add(app.arju.mpvgo.core.settings.PreferencesScreen)
             },
+            onBrowserClick = { backStack.openGoBrowser() },
             isSingleSelection = selectionManager.isSingleSelection,
             onInfoClick = null, // No info in recently played
             onShareClick = null,

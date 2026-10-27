@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ViewQuilt
 import androidx.compose.material.icons.outlined.Audiotrack
@@ -111,6 +112,32 @@ object PreferencesScreen : Screen {
             }
           }
           
+          item {
+            PreferenceSectionHeader(title = "Browser, Downloads & Network")
+          }
+
+          item {
+            PreferenceCard {
+              Preference(
+                title = { Text(text = "Network streaming") },
+                summary = {
+                  Text(
+                    text = "SMB, FTP, WebDAV shares and local streams",
+                    color = MaterialTheme.colorScheme.outline,
+                  )
+                },
+                icon = {
+                  Icon(
+                    Icons.Filled.Lan,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                  )
+                },
+                onClick = { backstack.add(app.arju.mpvgo.library.networkstreaming.NetworkStreamingScreen) },
+              )
+            }
+          }
+
           // UI & Appearance Section
           item {
             PreferenceSectionHeader(title = "UI & Appearance")

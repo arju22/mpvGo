@@ -74,6 +74,7 @@ import app.arju.mpvgo.library.selection.rememberSelectionManager
 import app.arju.mpvgo.library.sheets.PlaylistActionSheet
 import app.arju.mpvgo.library.states.EmptyState
 import app.arju.mpvgo.core.ui.LocalBackStack
+import app.arju.mpvgo.webbrowser.openGoBrowser
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import my.nanihadesuka.compose.LazyColumnScrollbar
@@ -230,6 +231,7 @@ object PlaylistScreen : Screen {
               onSettingsClick = {
                 backStack.add(app.arju.mpvgo.core.settings.PreferencesScreen)
               },
+              onBrowserClick = { backStack.openGoBrowser() },
               onRenameClick = if (selectionManager.isSingleSelection) {
                 { showRenameDialog = true }
               } else null,

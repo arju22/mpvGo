@@ -60,6 +60,7 @@ import app.arju.mpvgo.core.preferences.AppearancePreferences
 import app.arju.mpvgo.core.preferences.preference.collectAsState
 import app.arju.mpvgo.core.theme.DarkMode
 import app.arju.mpvgo.core.theme.LocalThemeTransitionState
+import app.arju.mpvgo.webbrowser.GoBrowserTopBarButton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -94,6 +95,7 @@ fun BrowserTopBar(
   onTitleLongPress: (() -> Unit)? = null,
   useRemoveIcon: Boolean = false,
   onAddToPlaylistClick: (() -> Unit)? = null,
+  onBrowserClick: (() -> Unit)? = null,
 ) {
   if (isInSelectionMode) {
     SelectionTopBar(
@@ -124,6 +126,7 @@ fun BrowserTopBar(
       additionalActions = additionalActions,
       modifier = modifier,
       onTitleLongPress = onTitleLongPress,
+      onBrowserClick = onBrowserClick,
     )
   }
 }
@@ -142,6 +145,7 @@ private fun NormalTopBar(
   additionalActions: @Composable RowScope.() -> Unit,
   modifier: Modifier = Modifier,
   onTitleLongPress: (() -> Unit)?,
+  onBrowserClick: (() -> Unit)? = null,
 ) {
   val preferences = koinInject<AppearancePreferences>()
   val darkMode by preferences.darkMode.collectAsState()
@@ -274,6 +278,7 @@ private fun NormalTopBar(
           )
         }
       }
+      if (onBrowserClick != null) GoBrowserTopBarButton(onBrowserClick)
       if (onSettingsClick != null) {
         IconButton(
           onClick = onSettingsClick,

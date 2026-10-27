@@ -34,6 +34,10 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Lan
+import app.arju.mpvgo.library.networkstreaming.NetworkStreamingScreen
+import app.arju.mpvgo.webbrowser.GoBrowserFab
+import app.arju.mpvgo.webbrowser.openGoBrowser
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapVert
@@ -508,6 +512,11 @@ fun FileSystemBrowserScreen(path: String? = null) {
             onSettingsClick = {
               backstack.add(app.arju.mpvgo.core.settings.PreferencesScreen)
             },
+            onBrowserClick = if (isAtRoot) {
+              { backstack.openGoBrowser() }
+            } else {
+              null
+            },
             onDeleteClick = if (videoSelectionManager.isInSelectionMode && !isMixedSelection) {
               null
             } else if (!BuildConfig.ENABLE_UPDATE_FEATURE && folderSelectionManager.isInSelectionMode) {
@@ -709,6 +718,15 @@ fun FileSystemBrowserScreen(path: String? = null) {
               icon = { Icon(Icons.Filled.Link, contentDescription = null) },
               text = { Text(text = "Open Link") },
             )
+
+            FloatingActionButtonMenuItem(
+              onClick = {
+                isFabExpanded.value = false
+                backstack.add(NetworkStreamingScreen)
+              },
+              icon = { Icon(Icons.Filled.Lan, contentDescription = null) },
+              text = { Text(text = "Network") },
+            )
           }
         }
       },
@@ -815,6 +833,17 @@ fun FileSystemBrowserScreen(path: String? = null) {
               modifier = Modifier,
             )
           }
+        }
+      }
+
+      if (isAtRoot) {
+        Box(Modifier.fillMaxSize().padding(padding)) {
+          GoBrowserFab(
+            visible = !isInSelectionMode && isFabVisible.value && !isFabExpanded.value &&
+              !app.arju.mpvgo.library.MainScreen.getPermissionDeniedState(),
+            onClick = { backstack.openGoBrowser() },
+            modifier = Modifier.align(Alignment.BottomStart),
+          )
         }
       }
     }

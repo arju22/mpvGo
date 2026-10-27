@@ -32,6 +32,10 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Lan
+import app.arju.mpvgo.library.networkstreaming.NetworkStreamingScreen
+import app.arju.mpvgo.webbrowser.GoBrowserFab
+import app.arju.mpvgo.webbrowser.openGoBrowser
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapVert
@@ -378,6 +382,7 @@ object FolderListScreen : Screen {
             onSettingsClick = {
               backstack.add(app.arju.mpvgo.core.settings.PreferencesScreen)
             },
+            onBrowserClick = { backstack.openGoBrowser() },
             onDeleteClick = { deleteDialogOpen.value = true },
             onRenameClick = null,
             isSingleSelection = selectionManager.isSingleSelection,
@@ -506,6 +511,15 @@ object FolderListScreen : Screen {
             icon = { Icon(Icons.Filled.Link, contentDescription = null) },
             text = { Text(text = "Open Link") },
           )
+
+          FloatingActionButtonMenuItem(
+            onClick = {
+              isFabExpanded.value = false
+              backstack.add(NetworkStreamingScreen)
+            },
+            icon = { Icon(Icons.Filled.Lan, contentDescription = null) },
+            text = { Text(text = "Network") },
+          )
         }
       },
     ) { padding ->
@@ -586,6 +600,15 @@ object FolderListScreen : Screen {
             )
           }
         }
+      }
+
+      Box(Modifier.fillMaxSize().padding(padding)) {
+        GoBrowserFab(
+          visible = !selectionManager.isInSelectionMode && isFabVisible.value && !isFabExpanded.value &&
+            !app.arju.mpvgo.library.MainScreen.getPermissionDeniedState(),
+          onClick = { backstack.openGoBrowser() },
+          modifier = Modifier.align(Alignment.BottomStart),
+        )
       }
 
       // Dialogs
