@@ -248,8 +248,31 @@ class TabManager(
     val saved = tab.savedState
     tab.savedState = null
     if (saved != null && view.restoreState(saved) != null) return view
-    tab.url.value.takeIf { it.isNotBlank() }?.let { view.loadUrl(it) }
+    tab.url.value.takeIf { it.isNotBlank() }?.let { factory.load(view, it) }
     return view
+  }
+
+  /** Re-applies changed browser settings to every open WebView. */
+  fun applySettings() {
+    _tabs.value.forEach { tab -> tab.webView?.let { factory.applySettings(it, tab) } }
+  }
+
+  /**
+   * Leaving the browser (Close browser, Exit, or Back on the first page): runs "Clear data
+   * when I exit". Returns true when the open tabs were closed.
+   */
+  fun onExitBrowser(): Boolean {
+    val what = prefs.exitClears()
+    if (what.isEmpty()) return false
+    if (ExitClear.HISTORY in what) scope.launch { library.clearHistory(0) }
+    if (ExitClear.COOKIES in what || ExitClear.CACHE in what) {
+      clearBrowsingData(ExitClear.COOKIES in what, ExitClear.CACHE in what)
+    }
+    if (ExitClear.TABS in what) {
+      _tabs.value.forEach { close(it.id) }
+      return true
+    }
+    return false
   }
 
   fun load(
@@ -259,7 +282,7 @@ class TabManager(
     val url = UrlInput.toUrl(input, prefs.searchTemplate())
     tab.pageUrl = url
     tab._url.value = url
-    webViewFor(tab).loadUrl(url)
+    factory.load(webViewFor(tab), url)
   }
 
   /** Shows the start page in [tab]; the page history stays, so Back returns to it. */
@@ -447,6 +470,7 @@ class TabManager(
       cookies = BrowserProfiles.cookies(tab.isPrivate, media.url, frame),
       pageUrl = tab.pageUrl,
       isPrivate = tab.isPrivate,
+      skipRecents = !tab.isPrivate && !prefs.addWebVideosToRecents.get(),
     )
   }
 

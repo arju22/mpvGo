@@ -140,6 +140,28 @@ class BrowserLibrary(
 
   suspend fun clearHistory(since: Long) = db.history().deleteSince(since)
 
+  /** Bookmarks and history matching [query], as (title, url) pairs. */
+  suspend fun search(query: String): Pair<List<Pair<String, String>>, List<Pair<String, String>>> =
+    kotlinx.coroutines.withContext(Dispatchers.IO) {
+      val q = query.trim()
+      if (q.isEmpty()) {
+        emptyList<Pair<String, String>>() to db.history().search("", SUGGEST_LIMIT).map { it.title to it.url }
+      } else {
+        db.bookmarks().search(q, SUGGEST_LIMIT).map { it.title to it.url } to
+          db.history().search(q, SUGGEST_LIMIT).map { it.title to it.url }
+      }
+    }
+
+  /** Applies a changed "Keep history" setting right away. */
+  fun pruneNow() {
+    scope.launch {
+      historyLock.withLock {
+        pruned = false
+        pruneOnce(System.currentTimeMillis())
+      }
+    }
+  }
+
   private suspend fun pruneOnce(now: Long) {
     if (pruned) return
     pruned = true
@@ -149,6 +171,7 @@ class BrowserLibrary(
 
   companion object {
     private const val REVISIT_WINDOW = 30 * 60_000L
+    private const val SUGGEST_LIMIT = 6
 
     fun isRecordable(url: String): Boolean = url.startsWith("http://") || url.startsWith("https://")
   }

@@ -35,6 +35,7 @@ import androidx.navigation3.ui.NavDisplay
 import app.arju.mpvgo.core.preferences.AppearancePreferences
 import app.arju.mpvgo.core.preferences.preference.collectAsState
 import app.arju.mpvgo.core.presentation.Screen
+import app.arju.mpvgo.webbrowser.openLinkInBrowser
 import app.arju.mpvgo.core.repository.NetworkRepository
 import app.arju.mpvgo.core.utils.update.UpdateDialog
 import app.arju.mpvgo.core.utils.update.UpdateViewModel
@@ -59,6 +60,9 @@ class MainActivity : ComponentActivity() {
   
   // Create a coroutine scope tied to the activity lifecycle
   private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+  // Link from another app for this activity's browser; kept per instance, as several can be open.
+  private val browserLink = androidx.compose.runtime.mutableStateOf<String?>(null)
 
   // Register the ActivityResultLauncher at class level
   private val mediaAccessLauncher = registerForActivityResult(
@@ -107,6 +111,7 @@ class MainActivity : ComponentActivity() {
   }
 
   private fun handleDownloadsIntent(intent: android.content.Intent?) {
+    app.arju.mpvgo.webbrowser.BrowserLinks.linkFrom(intent)?.let { browserLink.value = it }
     if (intent?.getBooleanExtra(app.arju.mpvgo.downloader.DownloadNotifications.EXTRA_OPEN_DOWNLOADS, false) == true) {
       intent.removeExtra(app.arju.mpvgo.downloader.DownloadNotifications.EXTRA_OPEN_DOWNLOADS)
       app.arju.mpvgo.downloader.DownloadCounts.requestOpen()
@@ -183,6 +188,13 @@ class MainActivity : ComponentActivity() {
     val openDownloads by app.arju.mpvgo.downloader.DownloadCounts.openRequested.collectAsState()
     LaunchedEffect(openDownloads) {
       if (openDownloads) while (typedBackstack.size > 1) typedBackstack.removeLastOrNull()
+    }
+    val link = browserLink.value
+    LaunchedEffect(link) {
+      if (link != null) {
+        browserLink.value = null
+        typedBackstack.openLinkInBrowser(link)
+      }
     }
     CompositionLocalProvider(
       LocalBackStack provides typedBackstack

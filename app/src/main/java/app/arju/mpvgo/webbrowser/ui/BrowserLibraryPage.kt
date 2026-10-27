@@ -1003,7 +1003,7 @@ private fun FolderPickerDialog(
 }
 
 @Composable
-private fun ClearDataDialog(
+internal fun ClearDataDialog(
   onClear: (ClearRange, history: Boolean, ClearRequest) -> Unit,
   onDismiss: () -> Unit,
 ) {

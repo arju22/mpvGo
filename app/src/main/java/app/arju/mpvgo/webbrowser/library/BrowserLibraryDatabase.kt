@@ -70,6 +70,12 @@ interface BookmarkDao {
 
   @Query("SELECT id FROM bookmarks WHERE parentId IN (:parents)")
   suspend fun childIds(parents: List<Long>): List<Long>
+
+  @Query("SELECT * FROM bookmarks WHERE isFolder = 0 AND (url LIKE '%' || :q || '%' OR title LIKE '%' || :q || '%') LIMIT :limit")
+  suspend fun search(
+    q: String,
+    limit: Int,
+  ): List<BookmarkEntity>
 }
 
 @Dao
@@ -100,6 +106,15 @@ interface HistoryDao {
 
   @Query("DELETE FROM history WHERE visitedAt < :before")
   suspend fun deleteBefore(before: Long)
+
+  @Query(
+    "SELECT * FROM history WHERE url LIKE '%' || :q || '%' OR title LIKE '%' || :q || '%' " +
+      "GROUP BY url ORDER BY MAX(visitedAt) DESC LIMIT :limit",
+  )
+  suspend fun search(
+    q: String,
+    limit: Int,
+  ): List<HistoryEntity>
 }
 
 /** Bookmarks and history of the Go browser, kept apart from the library database. */

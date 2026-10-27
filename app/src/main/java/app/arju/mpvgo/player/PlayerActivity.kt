@@ -407,6 +407,7 @@ class PlayerActivity :
     }
     mediaIdentifier = getMediaIdentifier(intent, fileName)
     isPrivateRequest = intent.getBooleanExtra(MediaRequest.EXTRA_PRIVATE, false)
+    skipRecentsRequest = intent.getBooleanExtra(MediaRequest.EXTRA_NO_RECENTS, false)
 
     // Set HTTP headers (including referer) BEFORE playing the file
     setHttpHeadersFromExtras(intent.extras)
@@ -1148,6 +1149,9 @@ class PlayerActivity :
   /** Private-tab request: never written to Recents or resume history. Tracks the loaded file. */
   private var isPrivateRequest = false
 
+  /** "Add web videos to Recents" is off: keep resume position but skip the Recents entry. */
+  private var skipRecentsRequest = false
+
   /** mpv's own user agent, captured before any request overrides it. */
   private var defaultUserAgent: String? = null
 
@@ -1677,7 +1681,7 @@ class PlayerActivity :
     }
 
     // Save to recently played when video actually loads and plays (never for private-tab requests)
-    if (!isPrivateRequest) lifecycleScope.launch(Dispatchers.IO) {
+    if (!isPrivateRequest && !skipRecentsRequest) lifecycleScope.launch(Dispatchers.IO) {
       if (playlist.isNotEmpty()) {
         // For playlist items, save using the current URI
         // All items are loaded, so playlistIndex is the direct index
@@ -2330,6 +2334,7 @@ class PlayerActivity :
     if (isReady) saveVideoPlaybackState(fileName)
     loadedMediaIdentifier = ""
     isPrivateRequest = intent.getBooleanExtra(MediaRequest.EXTRA_PRIVATE, false)
+    skipRecentsRequest = intent.getBooleanExtra(MediaRequest.EXTRA_NO_RECENTS, false)
 
     // Extract the new fileName before loading the file
     fileName = getFileName(intent)

@@ -21,6 +21,7 @@ import androidx.webkit.ProfileStore
 import androidx.webkit.ServiceWorkerClientCompat
 import androidx.webkit.ServiceWorkerControllerCompat
 import androidx.webkit.WebMessageCompat
+import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import app.arju.mpvgo.webbrowser.adblock.AdBlockPreferences
@@ -119,7 +120,6 @@ internal class GoWebViewFactory(
     BrowserProfiles.apply(webView, tab.isPrivate)
     hookServiceWorkers(tab.isPrivate)
     webView.settings.apply {
-      javaScriptEnabled = prefs.javascript.get()
       domStorageEnabled = true
       mediaPlaybackRequiresUserGesture = true
       loadWithOverviewMode = true
@@ -131,12 +131,10 @@ internal class GoWebViewFactory(
       mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
       allowFileAccess = false
       allowContentAccess = false
-      prefs.userAgent.get().takeIf { it.isNotBlank() }?.let { userAgentString = it }
       if (tab.isPrivate) cacheMode = WebSettings.LOAD_NO_CACHE
     }
-    tab.mobileUserAgent = webView.settings.userAgentString
-    if (tab.desktop.value) webView.settings.userAgentString = DesktopMode.userAgent(tab.mobileUserAgent)
-    tab.userAgent = webView.settings.userAgentString
+    tab.mobileUserAgent = ""
+    applySettings(webView, tab)
     if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
       WebViewCompat.addWebMessageListener(webView, BRIDGE, setOf("*")) { view, message, _, isMainFrame, reply ->
         onMessage(view, tab, host, message, isMainFrame, reply)
@@ -144,10 +142,69 @@ internal class GoWebViewFactory(
     }
     if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
       WebViewCompat.addDocumentStartJavaScript(webView, hookScript, setOf("*"))
+      if (prefs.doNotTrack.get()) WebViewCompat.addDocumentStartJavaScript(webView, PrivacyHeaders.SCRIPT, setOf("*"))
     }
     webView.webViewClient = Client(tab, host)
     webView.webChromeClient = Chrome(tab, host)
     return webView
+  }
+
+  /** Applies the browser settings that can change while a tab is open. */
+  @SuppressLint("SetJavaScriptEnabled", "RequiresFeature")
+  fun applySettings(
+    webView: WebView,
+    tab: BrowserTab,
+  ) {
+    val settings = webView.settings
+    settings.javaScriptEnabled = prefs.javascript.get()
+    settings.textZoom = prefs.textZoom.get().coerceIn(50, 300)
+    settings.safeBrowsingEnabled = prefs.safeBrowsing.get()
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+      WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, prefs.darkWebsites.get())
+    }
+    runCatching { BrowserProfiles.cookieManager(tab.isPrivate).setAcceptThirdPartyCookies(webView, !prefs.blockThirdPartyCookies.get()) }
+    val mobile = prefs.userAgent.get().ifBlank { defaultUserAgent }
+    if (mobile != tab.mobileUserAgent) {
+      tab.mobileUserAgent = mobile
+      settings.userAgentString = if (tab.desktop.value) DesktopMode.userAgent(mobile) else mobile
+      tab.userAgent = settings.userAgentString
+    }
+  }
+
+  private val defaultUserAgent: String by lazy { WebSettings.getDefaultUserAgent(appContext) }
+
+  /** Hosts whose https version failed this session; they load over http. */
+  private val httpOnlyHosts: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+  /** Hosts this class switched to https, so a failure can fall back. */
+  private val upgradedHosts: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
+  /** Loads [url] with the HTTPS upgrade and privacy headers applied. */
+  fun load(
+    view: WebView,
+    url: String,
+  ) {
+    view.loadUrl(upgrade(url) ?: url, PrivacyHeaders.of(prefs.doNotTrack.get()))
+  }
+
+  private fun upgrade(url: String): String? {
+    if (!prefs.httpsUpgrade.get()) return null
+    val secure = HttpsUpgrade.upgrade(url, httpOnlyHosts) ?: return null
+    HttpsUpgrade.hostOf(url)?.let(upgradedHosts::add)
+    return secure
+  }
+
+  /** The upgraded https page failed: remember the host and load it over http. */
+  private fun fallBack(
+    view: WebView,
+    url: String,
+  ): Boolean {
+    if (!url.startsWith("https://")) return false
+    val host = HttpsUpgrade.hostOf(url) ?: return false
+    if (host !in upgradedHosts || !httpOnlyHosts.add(host)) return false
+    Log.d(TAG, "https failed for $host, falling back to http")
+    view.post { view.loadUrl(HttpsUpgrade.downgrade(url), PrivacyHeaders.of(prefs.doNotTrack.get())) }
+    return true
   }
 
   private fun onMessage(
@@ -253,6 +310,12 @@ internal class GoWebViewFactory(
           tab._blocked.value += 1
           return true
         }
+        if (request.isForMainFrame && !request.isRedirect && scheme == "http") {
+          upgrade(url)?.let { secure ->
+            view.loadUrl(secure, PrivacyHeaders.of(prefs.doNotTrack.get()))
+            return true
+          }
+        }
         return false
       }
       if (scheme in INTERNAL_SCHEMES) return false
@@ -303,6 +366,23 @@ internal class GoWebViewFactory(
     ): Boolean {
       host.onRendererGone(tab)
       return true
+    }
+
+    override fun onReceivedError(
+      view: WebView,
+      request: WebResourceRequest,
+      error: android.webkit.WebResourceError,
+    ) {
+      if (request.isForMainFrame) fallBack(view, request.url.toString())
+    }
+
+    override fun onReceivedSslError(
+      view: WebView,
+      handler: android.webkit.SslErrorHandler,
+      error: android.net.http.SslError,
+    ) {
+      handler.cancel()
+      fallBack(view, error.url)
     }
 
     private fun updateNav(view: WebView) {

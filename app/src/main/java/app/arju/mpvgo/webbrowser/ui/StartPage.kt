@@ -78,6 +78,7 @@ fun StartPage(
   engine: SearchEngine,
   customSearchUrl: String,
   dials: List<SpeedDial>,
+  showDials: Boolean = true,
   onSearch: (String) -> Unit,
   onOpen: (url: String, newTab: Boolean, private: Boolean) -> Unit,
   onDialsChange: (List<SpeedDial>) -> Unit,
@@ -123,7 +124,7 @@ fun StartPage(
         style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.Center,
       )
-    } else {
+    } else if (showDials) {
       SpeedDialGrid(
         dials = dials,
         onOpen = { onOpen(it.url, false, false) },

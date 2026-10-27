@@ -1,0 +1,19 @@
+{
+  "uniqueId": "com.brave:adblock-rust",
+  "artifactVersion": "0.13.3",
+  "name": "adblock-rust",
+  "description": "Brave's ad and tracker blocking engine, used by the Go browser through a small JNI wrapper.",
+  "website": "https://github.com/brave/adblock-rust",
+  "developers": [
+    {
+      "name": "Brave Software",
+      "organisationUrl": "https://brave.com"
+    }
+  ],
+  "scm": {
+    "url": "https://github.com/brave/adblock-rust"
+  },
+  "licenses": [
+    "MPL-2.0"
+  ]
+}

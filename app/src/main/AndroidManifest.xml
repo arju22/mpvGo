@@ -54,6 +54,24 @@
             </intent-filter>
         </activity>
 
+        <!-- Go Browser > Settings > Tabs > "Open links from other apps" enables this alias. -->
+        <activity-alias
+            android:name=".GoBrowserLinks"
+            android:enabled="false"
+            android:exported="true"
+            android:label="mpvGo Browser"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+            </intent-filter>
+        </activity-alias>
+
         <activity
             android:name=".player.PlayerActivity"
             android:autoRemoveFromRecents="true"

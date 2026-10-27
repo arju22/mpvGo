@@ -188,6 +188,13 @@ room {
   schemaDirectory("$projectDir/schemas")
 }
 
+// mpvGo: native libraries that Gradle can't see (e.g. adblock-rust) are listed in aboutlibraries/.
+aboutLibraries {
+  collect {
+    configPath = file("aboutlibraries")
+  }
+}
+
 dependencies {
   implementation(libs.androidx.activity.compose)
   implementation(platform(libs.androidx.compose.bom))

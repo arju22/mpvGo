@@ -25,8 +25,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
@@ -76,6 +78,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.arju.mpvgo.webbrowser.core.TopBarButton
+import app.arju.mpvgo.webbrowser.core.UrlSuggestion
+import kotlinx.coroutines.delay
 
 /** Everything the browser chrome can ask the screen to do. */
 enum class BrowserAction {
@@ -95,6 +99,7 @@ enum class BrowserAction {
   DESKTOP,
   SITE_SETTINGS,
   SETTINGS,
+  HOME,
   CLOSE_BROWSER,
 }
 
@@ -111,6 +116,9 @@ data class TopBarState(
   val adBlockOnSite: Boolean,
   val desktop: Boolean,
   val bookmarked: Boolean = false,
+  val blocked: Int = 0,
+  val showTabCount: Boolean = true,
+  val swipeToSwitch: Boolean = true,
 )
 
 val TopBarHeight = 56.dp
@@ -122,11 +130,22 @@ fun BrowserTopBar(
   onSubmit: (String) -> Unit,
   onSwipeTab: (Int) -> Unit,
   editRequest: Int,
+  suggest: suspend (query: String) -> List<UrlSuggestion> = { emptyList() },
 ) {
   val container = if (state.isPrivate) PrivateColors.background else MaterialTheme.colorScheme.surface
   val content = if (state.isPrivate) PrivateColors.content else MaterialTheme.colorScheme.onSurface
   var editing by remember { mutableStateOf(false) }
+  var query by remember { mutableStateOf("") }
+  var suggestions by remember { mutableStateOf(emptyList<UrlSuggestion>()) }
   LaunchedEffect(editRequest) { if (editRequest > 0) editing = true }
+  LaunchedEffect(editing, query) {
+    if (!editing) {
+      suggestions = emptyList()
+      return@LaunchedEffect
+    }
+    delay(120)
+    suggestions = suggest(query)
+  }
 
   Surface(color = container, contentColor = content) {
     Column {
@@ -135,6 +154,7 @@ fun BrowserTopBar(
           UrlEditor(
             initial = state.url,
             isPrivate = state.isPrivate,
+            onChange = { query = it },
             onCancel = { editing = false },
             onSubmit = {
               editing = false
@@ -143,12 +163,12 @@ fun BrowserTopBar(
           )
         } else {
           Row(Modifier.fillMaxWidth().height(TopBarHeight).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            TabsButton(state.tabCount, state.isPrivate) { onAction(BrowserAction.TABS) }
+            TabsButton(state.tabCount, state.isPrivate, state.showTabCount) { onAction(BrowserAction.TABS) }
             UrlBox(
               state = state,
               onClick = { editing = true },
               onReload = { onAction(if (state.loading) BrowserAction.STOP else BrowserAction.RELOAD) },
-              onSwipeTab = onSwipeTab,
+              onSwipeTab = { if (state.swipeToSwitch) onSwipeTab(it) },
               modifier = Modifier.weight(1f),
             )
             state.buttons.forEach { button ->
@@ -158,6 +178,16 @@ fun BrowserTopBar(
                     BadgedBox(badge = { if (state.activeDownloads > 0) Badge { Text("${state.activeDownloads}") } }) {
                       Icon(Icons.Filled.Download, "Downloads")
                     }
+                  }
+                TopBarButton.AD_BLOCK ->
+                  IconButton(onClick = { onAction(BrowserAction.SITE_SETTINGS) }, enabled = state.url.isNotEmpty()) {
+                    BadgedBox(badge = { if (state.blocked > 0 && state.adBlockOnSite) Badge { Text(if (state.blocked > 99) "99+" else "${state.blocked}") } }) {
+                      Icon(Icons.Filled.Shield, "Ad block")
+                    }
+                  }
+                TopBarButton.BOOKMARK_PAGE ->
+                  IconButton(onClick = { onAction(BrowserAction.BOOKMARK_PAGE) }, enabled = state.url.isNotEmpty()) {
+                    Icon(if (state.bookmarked) Icons.Filled.Star else Icons.Filled.StarBorder, "Bookmark this page")
                   }
                 else -> IconButton(onClick = { onAction(button.action()) }) { Icon(button.icon(), button.label) }
               }
@@ -172,6 +202,53 @@ fun BrowserTopBar(
           LinearProgressIndicator(progress = { state.progress / 100f }, modifier = Modifier.fillMaxWidth().height(2.dp))
         }
       }
+      if (editing && suggestions.isNotEmpty()) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+          suggestions.forEach { s ->
+            SuggestionRow(s, state.isPrivate) {
+              editing = false
+              onSubmit(s.url)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun SuggestionRow(
+  item: UrlSuggestion,
+  isPrivate: Boolean,
+  onClick: () -> Unit,
+) {
+  val fg = if (isPrivate) PrivateColors.content else MaterialTheme.colorScheme.onSurface
+  Row(
+    Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    val icon =
+      when (item.kind) {
+        UrlSuggestion.Kind.COPIED -> Icons.Filled.ContentPaste
+        UrlSuggestion.Kind.BOOKMARK -> Icons.Filled.Star
+        UrlSuggestion.Kind.HISTORY -> Icons.Filled.History
+      }
+    Icon(icon, null, Modifier.size(20.dp), tint = fg.copy(alpha = 0.7f))
+    Column(Modifier.weight(1f).padding(start = 16.dp)) {
+      Text(
+        if (item.kind == UrlSuggestion.Kind.COPIED) "Link you copied" else item.title.ifBlank { displayUrl(item.url) },
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        style = MaterialTheme.typography.bodyMedium,
+        color = fg,
+      )
+      Text(
+        displayUrl(item.url),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        style = MaterialTheme.typography.bodySmall,
+        color = fg.copy(alpha = 0.6f),
+      )
     }
   }
 }
@@ -180,6 +257,10 @@ fun TopBarButton.action(): BrowserAction =
   when (this) {
     TopBarButton.BOOKMARKS -> BrowserAction.BOOKMARKS
     TopBarButton.DOWNLOADS -> BrowserAction.DOWNLOADS
+    TopBarButton.AD_BLOCK -> BrowserAction.SITE_SETTINGS
+    TopBarButton.BOOKMARK_PAGE -> BrowserAction.BOOKMARK_PAGE
+    TopBarButton.HOME -> BrowserAction.HOME
+    TopBarButton.DESKTOP -> BrowserAction.DESKTOP
     TopBarButton.HISTORY -> BrowserAction.HISTORY
     TopBarButton.NEW_TAB -> BrowserAction.NEW_TAB
     TopBarButton.SHARE -> BrowserAction.SHARE
@@ -190,6 +271,10 @@ fun TopBarButton.icon(): ImageVector =
   when (this) {
     TopBarButton.BOOKMARKS -> Icons.Filled.Bookmarks
     TopBarButton.DOWNLOADS -> Icons.Filled.Download
+    TopBarButton.AD_BLOCK -> Icons.Filled.Shield
+    TopBarButton.BOOKMARK_PAGE -> Icons.Filled.StarBorder
+    TopBarButton.HOME -> Icons.Filled.Home
+    TopBarButton.DESKTOP -> Icons.Filled.DesktopWindows
     TopBarButton.HISTORY -> Icons.Filled.History
     TopBarButton.NEW_TAB -> Icons.Filled.Add
     TopBarButton.SHARE -> Icons.Filled.Share
@@ -200,6 +285,7 @@ fun TopBarButton.icon(): ImageVector =
 private fun TabsButton(
   count: Int,
   isPrivate: Boolean,
+  showCount: Boolean,
   onClick: () -> Unit,
 ) {
   IconButton(onClick = onClick) {
@@ -208,9 +294,9 @@ private fun TabsButton(
       Modifier.size(24.dp).border(2.dp, color, RoundedCornerShape(6.dp)),
       contentAlignment = Alignment.Center,
     ) {
-      if (isPrivate && count == 0) {
+      if (isPrivate && (count == 0 || !showCount)) {
         Icon(Icons.Filled.VisibilityOff, null, Modifier.size(14.dp), tint = color)
-      } else {
+      } else if (showCount) {
         Text(if (count > 99) "∞" else "$count", style = MaterialTheme.typography.labelMedium, color = color)
       }
     }
@@ -289,12 +375,17 @@ fun displayUrl(url: String): String =
 private fun UrlEditor(
   initial: String,
   isPrivate: Boolean,
+  onChange: (String) -> Unit,
   onCancel: () -> Unit,
   onSubmit: (String) -> Unit,
 ) {
   var value by remember { mutableStateOf(TextFieldValue(initial, TextRange(0, initial.length))) }
   val focus = remember { FocusRequester() }
-  LaunchedEffect(Unit) { focus.requestFocus() }
+  LaunchedEffect(Unit) {
+    focus.requestFocus()
+    // The whole current URL is selected, so suggest as if nothing was typed yet.
+    onChange("")
+  }
   BackHandler(onBack = onCancel)
   val fg = if (isPrivate) PrivateColors.content else MaterialTheme.colorScheme.onSurface
   Row(Modifier.fillMaxWidth().height(TopBarHeight).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -307,7 +398,10 @@ private fun UrlEditor(
       Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp)) {
         BasicTextField(
           value = value,
-          onValueChange = { value = it },
+          onValueChange = {
+            if (it.text != value.text) onChange(it.text)
+            value = it
+          },
           singleLine = true,
           textStyle = MaterialTheme.typography.bodyMedium.copy(color = fg),
           cursorBrush = SolidColor(fg),
@@ -316,7 +410,10 @@ private fun UrlEditor(
           modifier = Modifier.weight(1f).focusRequester(focus),
         )
         if (value.text.isNotEmpty()) {
-          IconButton(onClick = { value = TextFieldValue("") }, modifier = Modifier.size(40.dp)) {
+          IconButton(onClick = {
+            value = TextFieldValue("")
+            onChange("")
+          }, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Filled.Close, "Clear", Modifier.size(20.dp))
           }
         }

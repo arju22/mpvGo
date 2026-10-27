@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ViewQuilt
 import androidx.compose.material.icons.outlined.Audiotrack
@@ -119,6 +120,24 @@ object PreferencesScreen : Screen {
 
           item {
             PreferenceCard {
+              Preference(
+                title = { Text(text = "Browser") },
+                summary = {
+                  Text(
+                    text = "Search, tabs, ad block, privacy",
+                    color = MaterialTheme.colorScheme.outline,
+                  )
+                },
+                icon = {
+                  Icon(
+                    Icons.Filled.Language,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                  )
+                },
+                onClick = { backstack.add(app.arju.mpvgo.webbrowser.settings.BrowserSettingsScreen) },
+              )
+              PreferenceDivider()
               Preference(
                 title = { Text(text = "Network streaming") },
                 summary = {

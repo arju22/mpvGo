@@ -24,6 +24,15 @@ data class SearchablePreference(
 object SearchablePreferences {
     val allPreferences: List<SearchablePreference> by lazy {
         buildList {
+            app.arju.mpvgo.webbrowser.settings.BrowserSettingsIndex.entries.forEach { e ->
+                add(SearchablePreference(
+                    title = e.title,
+                    summary = "Browser · " + e.category.title,
+                    keywords = e.keywords + "browser",
+                    category = "Browser, Downloads & Network",
+                    screen = app.arju.mpvgo.webbrowser.settings.BrowserSettingsPage(e.category),
+                ))
+            }
             add(SearchablePreference(
                 title = "Network streaming",
                 summary = "SMB, FTP, WebDAV shares and local streams",

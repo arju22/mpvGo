@@ -1,5 +1,9 @@
 package app.arju.mpvgo.webbrowser
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -29,6 +33,42 @@ val MainFabBottomPadding = 88.dp
 fun NavBackStack<Screen>.openGoBrowser(url: String? = null) {
   val last = lastOrNull()
   if (last is GoBrowserScreen && url == null) return
+  add(GoBrowserScreen(url))
+}
+
+/** Web links opened from other apps, when "Open links from other apps" is on. */
+object BrowserLinks {
+  const val ALIAS = "app.arju.mpvgo.GoBrowserLinks"
+
+  /** The http(s) link of a VIEW intent sent to the browser alias, or null. Clears it so it's handled once. */
+  fun linkFrom(intent: Intent?): String? {
+    if (intent?.action != Intent.ACTION_VIEW) return null
+    val uri = intent.data ?: return null
+    if (uri.scheme?.lowercase() !in setOf("http", "https")) return null
+    if (intent.component?.className != ALIAS) return null
+    intent.data = null
+    return uri.toString()
+  }
+
+  fun isEnabled(context: Context): Boolean =
+    context.packageManager.getComponentEnabledSetting(ComponentName(context, ALIAS)) ==
+      PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+
+  fun setEnabled(
+    context: Context,
+    enabled: Boolean,
+  ) {
+    context.packageManager.setComponentEnabledSetting(
+      ComponentName(context, ALIAS),
+      if (enabled) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
+      PackageManager.DONT_KILL_APP,
+    )
+  }
+}
+
+/** Replaces any open browser with one showing [url], so Back leaves to where the user was. */
+fun NavBackStack<Screen>.openLinkInBrowser(url: String) {
+  removeAll { it is GoBrowserScreen }
   add(GoBrowserScreen(url))
 }
 

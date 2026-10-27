@@ -6,6 +6,14 @@ enum class VideoTapMode { ASK_ONCE_PER_SITE, ALWAYS_ASK, ALWAYS_MPVGO, ALWAYS_WE
 
 enum class SiteChoice { MPVGO, WEB }
 
+/** What "Clear data when I exit" can remove. */
+enum class ExitClear(val label: String) {
+  TABS("Open tabs"),
+  HISTORY("History"),
+  COOKIES("Cookies and site data"),
+  CACHE("Cached images and files"),
+}
+
 class BrowserPreferences(store: PreferenceStore) {
   val videoTapMode = store.getString("browser_video_tap_mode", VideoTapMode.ASK_ONCE_PER_SITE.name)
 
@@ -31,6 +39,42 @@ class BrowserPreferences(store: PreferenceStore) {
 
   /** History older than this many days is removed; 0 keeps everything. */
   val historyDays = store.getInt("browser_history_days", 90)
+
+  // Appearance
+  val siteTiles = store.getBoolean("browser_site_tiles", true)
+  val textZoom = store.getInt("browser_text_zoom", 100)
+  val darkWebsites = store.getBoolean("browser_dark_websites", false)
+
+  // Top bar & gestures
+  val showTabCount = store.getBoolean("browser_show_tab_count", true)
+  val swipeAddressBar = store.getBoolean("browser_swipe_address_bar", true)
+  val swipeTabsPanel = store.getBoolean("browser_swipe_tabs_panel", true)
+
+  // Search
+  val searchSuggestions = store.getBoolean("browser_search_suggestions", true)
+  val suggestCopiedLink = store.getBoolean("browser_suggest_copied_link", true)
+
+  // Privacy & security
+  val blockThirdPartyCookies = store.getBoolean("browser_block_third_party_cookies", true)
+  val httpsUpgrade = store.getBoolean("browser_https_upgrade", true)
+  val safeBrowsing = store.getBoolean("browser_safe_browsing", true)
+  val doNotTrack = store.getBoolean("browser_do_not_track", false)
+
+  /** [ExitClear] names cleared when the user leaves the browser; empty means off. */
+  val clearOnExit = store.getStringSet("browser_clear_on_exit", emptySet())
+
+  /** Every browser preference, for "Reset browser settings". Speed dials and site lists stay. */
+  val resettable
+    get() =
+      listOf(
+        videoTapMode, floatingMediaButton, addWebVideosToRecents, javascript, userAgent, desktopSite,
+        searchEngine, customSearchUrl, topBarButtons, pullToRefresh, rememberTabs, historyDays,
+        siteTiles, textZoom, darkWebsites, showTabCount, swipeAddressBar, swipeTabsPanel,
+        searchSuggestions, suggestCopiedLink, blockThirdPartyCookies, httpsUpgrade, safeBrowsing,
+        doNotTrack, clearOnExit,
+      )
+
+  fun exitClears(): Set<ExitClear> = clearOnExit.get().mapNotNull { runCatching { ExitClear.valueOf(it) }.getOrNull() }.toSet()
 
   fun engine(): SearchEngine = runCatching { SearchEngine.valueOf(searchEngine.get()) }.getOrDefault(SearchEngine.GOOGLE)
 

@@ -39,12 +39,22 @@ This file is updated with every batch of changes and before every release push.
   box (swipe it to switch tabs), Bookmarks and Downloads buttons and a menu; a tabs drawer with
   normal and private tabs; find in page; desktop site per tab; pull to refresh; a per-site
   settings sheet (ad block, pop-ups, what happens when you tap a video); and a floating media
-  button with the number of videos found. Browser settings come next.
+  button with the number of videos found.
 - Go browser bookmarks and history: bookmark a page from the menu star (with folders and
   "Also add to start page"); a Bookmarks and History page with search, folders, move, multi-select,
   share, and import and export of browser bookmark files (HTML); history grouped by day, with
   played videos tagged; clear browsing data by time range (history, cookies, cache, site settings).
   Open tabs are remembered across restarts (private tabs never are).
+- Go browser settings (Settings › Browser, or Browser settings in the browser menu), with a search
+  box and pages for appearance (site tiles, text size, dark websites, desktop by default), top bar
+  and gestures (pick up to two top bar buttons, such as Home or Ad block), search (engine,
+  suggestions from your history and bookmarks, a copied link), tabs (remember tabs, open links
+  from other apps), video playback, downloads, ad block (filter lists, your own filters, allowed
+  sites), privacy (block third-party cookies, always use HTTPS, Safe Browsing, Do Not Track, site
+  permissions, clear data when you exit, how long to keep history) and advanced (user agent,
+  JavaScript, reset). Suggestions are looked up on the device; nothing you type is sent until you
+  search. Browser settings also appear in the main settings search.
+- adblock-rust (MPL-2.0) is listed under Open source licences.
 
 ### Changed
 - Network streaming moved out of the bottom bar. Open it from the Play button menu (new

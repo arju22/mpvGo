@@ -27,13 +27,17 @@ enum class SearchEngine(
     }
 }
 
-enum class TopBarButton(val label: String) {
-  BOOKMARKS("Bookmarks"),
-  DOWNLOADS("Downloads"),
-  HISTORY("History"),
-  NEW_TAB("New tab"),
-  SHARE("Share"),
-  FIND("Find in page"),
+enum class TopBarButton(val label: String, val summary: String) {
+  BOOKMARKS("Bookmarks", "Opens your bookmarks"),
+  DOWNLOADS("Downloads", "Shows running count"),
+  AD_BLOCK("Ad block", "Shows blocked count"),
+  BOOKMARK_PAGE("Bookmark this page", "Star or edit the bookmark"),
+  HOME("Home", "Back to the start page"),
+  NEW_TAB("New tab", "Opens a start page"),
+  DESKTOP("Desktop site", "Switch this tab's site version"),
+  SHARE("Share", "Send the page link"),
+  HISTORY("History", "Pages you visited"),
+  FIND("Find in page", "Search the page text"),
   ;
 
   companion object {
@@ -45,6 +49,29 @@ enum class TopBarButton(val label: String) {
         .mapNotNull { name -> runCatching { valueOf(name.trim()) }.getOrNull() }
         .distinct()
         .take(MAX)
+
+    fun encode(list: List<TopBarButton>): String = list.distinct().take(MAX).joinToString(",") { it.name }
+
+    /** Tapping a button in the picker: removes it if shown, adds it when there is room. */
+    fun toggle(
+      current: List<TopBarButton>,
+      button: TopBarButton,
+    ): List<TopBarButton> =
+      when {
+        button in current -> current - button
+        current.size < MAX -> current + button
+        else -> current
+      }
+
+    /** Moves the shown button at [from] to [to]; out-of-range indexes change nothing. */
+    fun move(
+      current: List<TopBarButton>,
+      from: Int,
+      to: Int,
+    ): List<TopBarButton> {
+      if (from !in current.indices || to !in current.indices) return current
+      return current.toMutableList().apply { add(to, removeAt(from)) }
+    }
   }
 }
 

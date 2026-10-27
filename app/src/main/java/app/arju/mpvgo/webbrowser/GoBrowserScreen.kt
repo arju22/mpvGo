@@ -78,7 +78,12 @@ import app.arju.mpvgo.core.ui.LocalBackStack
 import app.arju.mpvgo.downloader.DownloadCounts
 import app.arju.mpvgo.webbrowser.adblock.AdBlockPreferences
 import app.arju.mpvgo.webbrowser.adblock.SiteMatcher
+import android.content.ClipboardManager
 import app.arju.mpvgo.webbrowser.core.BrowserTab
+import app.arju.mpvgo.webbrowser.core.ClipboardLink
+import app.arju.mpvgo.webbrowser.core.Suggestions
+import app.arju.mpvgo.webbrowser.core.UrlSuggestion
+import app.arju.mpvgo.webbrowser.settings.BrowserSettingsScreen
 import app.arju.mpvgo.webbrowser.core.DetectedMedia
 import app.arju.mpvgo.webbrowser.core.SearchEngine
 import app.arju.mpvgo.webbrowser.core.SiteChoice
@@ -206,13 +211,22 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
       tabs.newTab(private = private)
     }
 
+    fun exitBrowser() {
+      tabs.onExitBrowser()
+      backstack.removeLastOrNull()
+    }
+
+    LaunchedEffect(Unit) { tabs.applySettings() }
+    // Home pauses the WebView; resume it once the tab shows a page again (load, Back, Forward).
+    LaunchedEffect(webView, startPage) { if (!startPage) webView?.onResume() }
+
     BackHandler {
       when {
         drawer.isOpen -> scope.launch { drawer.close() }
         finding -> closeFind()
         fullscreen != null -> fullscreen?.second?.onCustomViewHidden()
         canGoBack -> webView?.goBack()
-        else -> backstack.removeLastOrNull()
+        else -> exitBrowser()
       }
     }
 
@@ -263,20 +277,48 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
         }
         BrowserAction.DESKTOP -> tabs.setDesktop(t, !desktop)
         BrowserAction.SITE_SETTINGS -> showSite = true
-        BrowserAction.CLOSE_BROWSER -> backstack.removeLastOrNull()
+        BrowserAction.CLOSE_BROWSER -> exitBrowser()
+        BrowserAction.HOME -> {
+          closeFind()
+          tabs.goHome(t)
+        }
         BrowserAction.BOOKMARK_PAGE ->
           if (!startPage) bookmarkEdit = bookmark ?: BookmarkEntity(title = t.title.value.ifBlank { tabUrl }, url = tabUrl)
         BrowserAction.BOOKMARKS -> libraryPage = LibraryTab.BOOKMARKS
         BrowserAction.HISTORY -> libraryPage = LibraryTab.HISTORY
-        BrowserAction.SETTINGS ->
-          Toast.makeText(context, "Coming in the next update", Toast.LENGTH_SHORT).show()
+        BrowserAction.SETTINGS -> backstack.add(BrowserSettingsScreen)
       }
+    }
+
+    val showTabCount by prefs.showTabCount.collectAsState()
+    val swipeAddressBar by prefs.swipeAddressBar.collectAsState()
+    val swipeTabsPanel by prefs.swipeTabsPanel.collectAsState()
+    val searchSuggestions by prefs.searchSuggestions.collectAsState()
+    val suggestCopied by prefs.suggestCopiedLink.collectAsState()
+    val blockedOnPage by (tab?.blocked ?: remember { MutableStateFlow(0) }).collectAsState()
+    var copiedLink by remember { mutableStateOf<String?>(null) }
+
+    // Suggestions come only from this device (history, bookmarks, clipboard); nothing is sent to a search engine.
+    suspend fun suggest(query: String): List<UrlSuggestion> {
+      if (query.isEmpty()) {
+        copiedLink =
+          if (suggestCopied) {
+            val clip = context.getSystemService(ClipboardManager::class.java)?.primaryClip
+            clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.let { ClipboardLink.extract(it.toString()) }
+          } else {
+            null
+          }
+      }
+      val copied = copiedLink?.takeIf { it != tabUrl && (query.isEmpty() || it.contains(query, ignoreCase = true)) }
+      if (!searchSuggestions || isPrivate) return Suggestions.merge(copied, emptyList(), emptyList())
+      val (marks, visits) = library.search(query)
+      return Suggestions.merge(copied, marks, visits)
     }
 
     val rootColor = if (isPrivate) PrivateColors.background else MaterialTheme.colorScheme.surface
     ModalNavigationDrawer(
       drawerState = drawer,
-      gesturesEnabled = libraryPage == null,
+      gesturesEnabled = libraryPage == null && swipeTabsPanel,
       drawerContent = {
         TabsDrawer(
           normal = tabList.filterNot { it.isPrivate },
@@ -293,7 +335,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
           },
           onClose = { tabs.close(it.id) },
           onCloseAll = { tabs.closeAll(drawerPrivate) },
-          onExit = { backstack.removeLastOrNull() },
+          onExit = ::exitBrowser,
           onBack = { webView?.goBack() },
           onHome = {
             tab?.let(tabs::goHome)
@@ -333,7 +375,11 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
                     adBlockOnSite = adBlockOnSite,
                     desktop = desktop,
                     bookmarked = bookmark != null,
+                    blocked = blockedOnPage,
+                    showTabCount = showTabCount,
+                    swipeToSwitch = swipeAddressBar,
                   ),
+                suggest = ::suggest,
                 onAction = ::onAction,
                 onSubmit = { text -> tabs.load(tab, text) },
                 onSwipeTab = { dir ->
@@ -374,7 +420,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
                   CircularProgressIndicator(progress = { pull.coerceAtMost(1f) }, modifier = Modifier.padding(8.dp))
                 }
               }
-              if (!startPage) {
+              if (!startPage && swipeTabsPanel) {
                 LeftEdgeSwipe(Modifier.align(Alignment.CenterStart)) {
                   drawerPrivate = tab.isPrivate
                   scope.launch { drawer.open() }
@@ -544,11 +590,13 @@ private fun BrowserStartPage(
   val engineName by prefs.searchEngine.collectAsState()
   val custom by prefs.customSearchUrl.collectAsState()
   val rawDials by prefs.speedDials.collectAsState()
+  val siteTiles by prefs.siteTiles.collectAsState()
   StartPage(
     isPrivate = tab.isPrivate,
     engine = runCatching { SearchEngine.valueOf(engineName) }.getOrDefault(SearchEngine.GOOGLE),
     customSearchUrl = custom,
     dials = SpeedDials.decode(rawDials),
+    showDials = siteTiles,
     onSearch = {
       tabs.load(tab, it)
       onSearched()
