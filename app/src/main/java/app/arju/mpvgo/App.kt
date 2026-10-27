@@ -1,12 +1,12 @@
 package app.arju.mpvgo
 
 import android.app.Application
-import app.arju.mpvgo.database.repository.VideoMetadataCacheRepository
-import app.arju.mpvgo.di.DatabaseModule
-import app.arju.mpvgo.di.FileManagerModule
-import app.arju.mpvgo.di.PreferencesModule
-import app.arju.mpvgo.presentation.crash.CrashActivity
-import app.arju.mpvgo.presentation.crash.GlobalExceptionHandler
+import app.arju.mpvgo.core.database.repository.VideoMetadataCacheRepository
+import app.arju.mpvgo.core.di.DatabaseModule
+import app.arju.mpvgo.core.di.FileManagerModule
+import app.arju.mpvgo.core.di.PreferencesModule
+import app.arju.mpvgo.core.presentation.crash.CrashActivity
+import app.arju.mpvgo.core.presentation.crash.GlobalExceptionHandler
 import `is`.xyz.mpv.FastThumbnails
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +33,7 @@ class App : Application() {
         PreferencesModule,
         DatabaseModule,
         FileManagerModule,
-        app.arju.mpvgo.di.domainModule,
+        app.arju.mpvgo.core.di.domainModule,
       )
     }
 

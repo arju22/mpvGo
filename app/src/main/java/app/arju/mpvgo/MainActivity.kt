@@ -32,17 +32,17 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
-import app.arju.mpvgo.preferences.AppearancePreferences
-import app.arju.mpvgo.preferences.preference.collectAsState
-import app.arju.mpvgo.presentation.Screen
-import app.arju.mpvgo.repository.NetworkRepository
-import app.arju.mpvgo.utils.update.UpdateDialog
-import app.arju.mpvgo.utils.update.UpdateViewModel
-import app.arju.mpvgo.ui.browser.MainScreen
-import app.arju.mpvgo.ui.theme.DarkMode
-import app.arju.mpvgo.ui.theme.MpvGoTheme
-import app.arju.mpvgo.ui.utils.LocalBackStack
-import app.arju.mpvgo.utils.permission.PermissionUtils
+import app.arju.mpvgo.core.preferences.AppearancePreferences
+import app.arju.mpvgo.core.preferences.preference.collectAsState
+import app.arju.mpvgo.core.presentation.Screen
+import app.arju.mpvgo.core.repository.NetworkRepository
+import app.arju.mpvgo.core.utils.update.UpdateDialog
+import app.arju.mpvgo.core.utils.update.UpdateViewModel
+import app.arju.mpvgo.library.MainScreen
+import app.arju.mpvgo.core.theme.DarkMode
+import app.arju.mpvgo.core.theme.MpvGoTheme
+import app.arju.mpvgo.core.ui.LocalBackStack
+import app.arju.mpvgo.core.utils.permission.PermissionUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
     PermissionUtils.setMediaAccessLauncher(mediaAccessLauncher)
 
     // Register proxy lifecycle observer for network streaming
-    lifecycle.addObserver(app.arju.mpvgo.ui.browser.networkstreaming.proxy.ProxyLifecycleObserver())
+    lifecycle.addObserver(app.arju.mpvgo.library.networkstreaming.proxy.ProxyLifecycleObserver())
 
     setContent {
       // Set up theme and edge-to-edge display
