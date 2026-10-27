@@ -406,6 +406,7 @@ class PlayerActivity :
       fileName = intent.data?.lastPathSegment ?: "Unknown Video"
     }
     mediaIdentifier = getMediaIdentifier(intent, fileName)
+    isPrivateRequest = intent.getBooleanExtra(MediaRequest.EXTRA_PRIVATE, false)
 
     // Set HTTP headers (including referer) BEFORE playing the file
     setHttpHeadersFromExtras(intent.extras)
@@ -1094,7 +1095,6 @@ class PlayerActivity :
     }
 
     addSubtitlesFromExtras(extras)
-    setHttpHeadersFromExtras(extras)
   }
 
   /**
@@ -1124,86 +1124,42 @@ class PlayerActivity :
   }
 
   /**
-   * Sets HTTP headers from intent extras for network playback.
-   *
-   * This method checks the intent extras for the "headers" key, which contains a list
-   * of HTTP headers to set. It sets the User-Agent header and any additional headers
-   * specified in the list.
-   *
-   * Also automatically adds Referer header based on the URL origin if not already provided.
-   *
-   * @param extras Bundle containing HTTP headers
+   * Applies the request's HTTP headers (User-Agent, Referer, Origin, Cookie, extras) to mpv.
+   * Must run before loadfile; always resets so a previous request's headers never leak.
+   * Cookies from the WebView store for the stream URL and the page URL are merged in.
    */
   private fun setHttpHeadersFromExtras(extras: Bundle?) {
-    // Build header map starting with auto-detected referer
-    val headerMap = mutableMapOf<String, String>()
-
-    // Automatically extract and set referer domain from the URL
     val uri = extractUriFromIntent(intent)
-    if (uri != null && HttpUtils.isNetworkStream(uri)) {
-      HttpUtils.extractRefererDomain(uri)?.let { referer ->
-        headerMap["Referer"] = referer
-        Log.d(TAG, "Auto-detected Referer: $referer")
-      }
-    }
-
-    // Process headers from extras (these can override the auto-detected referer)
-    extras?.getStringArray("headers")?.let { headers ->
-      if (headers.isEmpty()) return@let
-
-      if (headers[0].startsWith("User-Agent", ignoreCase = true)) {
-        MPVLib.setPropertyString("user-agent", headers[1])
-      }
-
-      if (headers.size > 2) {
-        headers
-          .asSequence()
-          .drop(2)
-          .chunked(2)
-          .filter { it.size == 2 }
-          .forEach { (key, value) ->
-            headerMap[key] = value
-          }
-      }
-    }
-
-    // Set all headers in MPV
-    if (headerMap.isNotEmpty()) {
-      val headersString = headerMap
-        .map { "${it.key}: ${it.value.replace(",", "\\,")}" }
-        .joinToString(",")
-
-      MPVLib.setPropertyString("http-header-fields", headersString)
-      Log.d(TAG, "Set HTTP headers: $headersString")
-    }
+    val isNetwork = uri != null && HttpUtils.isNetworkStream(uri)
+    val autoReferer = if (isNetwork) HttpUtils.extractRefererDomain(uri!!) else null
+    // Only browser requests carry a page URL; skip CookieManager otherwise (it boots Chromium).
+    val pageUrl = extras?.getString(MediaRequest.EXTRA_PAGE_URL)
+    val webCookies = if (isNetwork && pageUrl != null) webViewCookies(uri.toString(), pageUrl) else null
+    applyHeaderPlan(HttpHeaderPlan.build(extras?.getStringArray(MediaRequest.EXTRA_HEADERS), autoReferer, webCookies))
   }
 
-  /**
-   * Sets HTTP headers for a specific URI (used for playlist items).
-   * Automatically extracts and sets the Referer header based on the URI origin.
-   *
-   * @param uri The URI to extract referer from and set headers for
-   */
+  private fun webViewCookies(vararg urls: String?): String? = runCatching {
+    val manager = android.webkit.CookieManager.getInstance()
+    HttpHeaderPlan.mergeCookies(*urls.filterNotNull().map { manager.getCookie(it) }.toTypedArray())
+  }.getOrNull()
+
+  /** Private-tab request: never written to Recents or resume history. Tracks the loaded file. */
+  private var isPrivateRequest = false
+
+  /** mpv's own user agent, captured before any request overrides it. */
+  private var defaultUserAgent: String? = null
+
+  private fun applyHeaderPlan(plan: HttpHeaderPlan) {
+    if (defaultUserAgent == null) defaultUserAgent = MPVLib.getPropertyString("user-agent") ?: ""
+    MPVLib.setOptionString("user-agent", plan.userAgent ?: defaultUserAgent!!)
+    MPVLib.setOptionString("http-header-fields", HttpHeaderPlan.toMpvList(plan.fields))
+    Log.d(TAG, "HTTP headers: ${plan.fields.map { it.substringBefore(':') }}")
+  }
+
+  /** Sets HTTP headers for a playlist item: only the auto Referer. */
   private fun setHttpHeadersForUri(uri: Uri) {
     if (!HttpUtils.isNetworkStream(uri)) return
-
-    val headerMap = mutableMapOf<String, String>()
-
-    // Automatically extract and set referer domain from the URI
-    HttpUtils.extractRefererDomain(uri)?.let { referer ->
-      headerMap["Referer"] = referer
-      Log.d(TAG, "Auto-detected Referer for playlist item: $referer")
-    }
-
-    // Set all headers in MPV
-    if (headerMap.isNotEmpty()) {
-      val headersString = headerMap
-        .map { "${it.key}: ${it.value.replace(",", "\\,")}" }
-        .joinToString(",")
-
-      MPVLib.setPropertyString("http-header-fields", headersString)
-      Log.d(TAG, "Set HTTP headers for playlist item: $headersString")
-    }
+    applyHeaderPlan(HttpHeaderPlan.build(null, HttpUtils.extractRefererDomain(uri)))
   }
 
   /**
@@ -1718,8 +1674,8 @@ class PlayerActivity :
       }
     }
 
-    // Save to recently played when video actually loads and plays
-    lifecycleScope.launch(Dispatchers.IO) {
+    // Save to recently played when video actually loads and plays (never for private-tab requests)
+    if (!isPrivateRequest) lifecycleScope.launch(Dispatchers.IO) {
       if (playlist.isNotEmpty()) {
         // For playlist items, save using the current URI
         // All items are loaded, so playlistIndex is the direct index
@@ -1987,7 +1943,7 @@ class PlayerActivity :
    *               Essential during onPause when finishing so the state is written before MainActivity resumes.
    */
   private fun saveVideoPlaybackState(mediaTitle: String, isSync: Boolean = false) {
-    if (mediaIdentifier.isBlank()) return
+    if (mediaIdentifier.isBlank() || isPrivateRequest) return
 
     // Capture the identifier now: playlist navigation changes mediaIdentifier right after saving.
     val mediaIdentifier = mediaIdentifier
@@ -2371,6 +2327,7 @@ class PlayerActivity :
     // Save the outgoing file under its own key before switching; onPause skips this in PiP.
     if (isReady) saveVideoPlaybackState(fileName)
     loadedMediaIdentifier = ""
+    isPrivateRequest = intent.getBooleanExtra(MediaRequest.EXTRA_PRIVATE, false)
 
     // Extract the new fileName before loading the file
     fileName = getFileName(intent)

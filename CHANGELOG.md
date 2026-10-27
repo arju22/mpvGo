@@ -19,6 +19,10 @@ This file is updated with every batch of changes and before every release push.
   claimed by a subtitle gesture is no longer a tap; a plain tap still toggles the controls.
 - The system "Open with" chooser listed mpvGo twice ("mpvGo" and "Media Info"). Media Info no
   longer registers for opening files or links; it is still available in the app and from Share.
+- Network streams opened with HTTP headers: the headers are now applied before the stream opens
+  instead of after, every header in the "headers" extra is used (the first pair was dropped unless
+  it was the User-Agent), and opening a new stream no longer reuses the previous stream's
+  User-Agent, cookies or other headers.
 
 ## [1.0.0] - 2026-10-25
 
