@@ -222,6 +222,7 @@ dependencies {
   ksp(libs.room.compiler)
   implementation(libs.room.ktx)
   implementation(libs.work.runtime)
+  implementation(libs.androidx.webkit)
 
   implementation(libs.kotlinx.immutable.collections)
   implementation(libs.kotlinx.serialization.json)

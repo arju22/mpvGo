@@ -1134,7 +1134,9 @@ class PlayerActivity :
     val autoReferer = if (isNetwork) HttpUtils.extractRefererDomain(uri!!) else null
     // Only browser requests carry a page URL; skip CookieManager otherwise (it boots Chromium).
     val pageUrl = extras?.getString(MediaRequest.EXTRA_PAGE_URL)
-    val webCookies = if (isNetwork && pageUrl != null) webViewCookies(uri.toString(), pageUrl) else null
+    // Private tabs pass their own profile's cookies in the headers; never mix in the default store.
+    val isPrivate = extras?.getBoolean(MediaRequest.EXTRA_PRIVATE, false) == true
+    val webCookies = if (isNetwork && pageUrl != null && !isPrivate) webViewCookies(uri.toString(), pageUrl) else null
     applyHeaderPlan(HttpHeaderPlan.build(extras?.getStringArray(MediaRequest.EXTRA_HEADERS), autoReferer, webCookies))
   }
 

@@ -188,7 +188,12 @@ object MainScreen : Screen {
         }
       }
     ) { paddingValues ->
-      Box(modifier = Modifier.fillMaxSize()) {
+      Box(
+        modifier =
+          Modifier.fillMaxSize().tabSwipe(enabled = !hideNavigationBar) { direction ->
+            selectedTab = (selectedTab + direction).coerceIn(0, 3)
+          },
+      ) {
         // Always use 80dp bottom padding regardless of navigation bar visibility
         val fabBottomPadding = 80.dp
 

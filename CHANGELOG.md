@@ -13,6 +13,8 @@ This file is updated with every batch of changes and before every release push.
 - Go Browser entry points: a ringed globe in the top bar of every main tab and a globe button
   at the bottom left of Home and Downloads. The browser itself is still a placeholder.
 - Downloads tab (replaces the Network tab), with a badge for active downloads.
+- Swipe left or right to switch between the main tabs (Home, Recents, Playlists, Downloads).
+  Swiping is off while selecting, searching or with the Play menu open.
 - Downloader: multi-connection HTTP downloads and HLS downloads (AES-128 decrypted, remuxed to
   MP4 with a .ts fallback). Downloads run in a background service, resume after the app is
   closed and retry failed connections up to 10 times. Finished videos appear in the library
@@ -27,6 +29,11 @@ This file is updated with every batch of changes and before every release push.
 - Ad blocking engine for the Go browser (Brave adblock-rust). Filter lists (EasyList,
   EasyPrivacy, uBlock filters, cookie notices) are downloaded when the browser first opens and
   updated weekly; nothing loads until you open the browser. Adds about 1 MB to the APK.
+- Go browser core: tabs and private tabs (separate cookies and storage, no history), ad and
+  tracker blocking with element hiding, and video detection. A "videos found" chip lists the
+  videos on the page; when a page starts a video, mpvGo asks whether to play it in mpvGo or the
+  web player (with "Remember for this site"). Videos open in mpvGo with the page's cookies,
+  referrer and user agent, so protected streams keep working. The browser UI is still basic.
 
 ### Changed
 - Network streaming moved out of the bottom bar. Open it from the Play button menu (new

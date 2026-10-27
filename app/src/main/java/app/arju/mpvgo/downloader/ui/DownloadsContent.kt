@@ -119,6 +119,7 @@ fun DownloadsContent() {
   var editLinkFor by remember { mutableStateOf<DownloadEntity?>(null) }
   var deleteIds by remember { mutableStateOf<Set<Long>?>(null) }
   var showBatteryPrompt by remember { mutableStateOf(false) }
+  app.arju.mpvgo.library.BlockTabSwipe(selected.isNotEmpty() || searching)
 
   LaunchedEffect(Unit) {
     if (!prefs.batteryPromptShown.get()) {

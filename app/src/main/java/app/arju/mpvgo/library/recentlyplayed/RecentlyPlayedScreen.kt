@@ -150,6 +150,7 @@ object RecentlyPlayedScreen : Screen {
       )
 
     // Handle back button during selection mode or FAB menu expanded
+    app.arju.mpvgo.library.BlockTabSwipe(selectionManager.isInSelectionMode || isFabExpanded.value)
     BackHandler(enabled = selectionManager.isInSelectionMode || isFabExpanded.value) {
       when {
         isFabExpanded.value -> isFabExpanded.value = false

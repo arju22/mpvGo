@@ -26,8 +26,10 @@ import app.arju.mpvgo.core.presentation.Screen
 /** Distance of the main Play FAB from the bottom of its Scaffold (clears the navigation bar). */
 val MainFabBottomPadding = 88.dp
 
-fun NavBackStack<Screen>.openGoBrowser() {
-  if (lastOrNull() != GoBrowserScreen) add(GoBrowserScreen)
+fun NavBackStack<Screen>.openGoBrowser(url: String? = null) {
+  val last = lastOrNull()
+  if (last is GoBrowserScreen && url == null) return
+  add(GoBrowserScreen(url))
 }
 
 /** Top-bar entry to Go Browser: the old Network tab globe with a thin ring, placed before Settings. */
@@ -46,12 +48,22 @@ fun GoBrowserTopBarButton(onClick: () -> Unit) {
 
 /** Bottom-left FAB on Home and Downloads, mirroring the Play FAB on the right. */
 @Composable
-fun GoBrowserFab(visible: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun GoBrowserFab(
+  visible: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+  alignWithFabMenu: Boolean = false,
+) {
   AnimatedVisibility(
     visible = visible,
     enter = scaleIn() + fadeIn(),
     exit = scaleOut() + fadeOut(),
-    modifier = modifier.padding(start = 16.dp, bottom = 16.dp + MainFabBottomPadding),
+    modifier =
+      modifier.padding(
+        // FloatingActionButtonMenu adds its own 16dp inset around the Play FAB; mirror it.
+        start = 16.dp + if (alignWithFabMenu) 16.dp else 0.dp,
+        bottom = 16.dp + MainFabBottomPadding + if (alignWithFabMenu) 16.dp else 0.dp,
+      ),
   ) {
     FloatingActionButton(
       onClick = onClick,

@@ -152,6 +152,7 @@ object PlaylistScreen : Screen {
     val isFabVisible = remember { mutableStateOf(true) }
 
     // Predictive back: Intercept when in selection mode or searching
+    app.arju.mpvgo.library.BlockTabSwipe(selectionManager.isInSelectionMode || isSearching)
     BackHandler(enabled = selectionManager.isInSelectionMode || isSearching) {
       when {
         isSearching -> {

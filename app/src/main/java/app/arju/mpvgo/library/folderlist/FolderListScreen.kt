@@ -305,6 +305,7 @@ object FolderListScreen : Screen {
 
     // Optimized back handler for immediate response
     val shouldHandleBack = selectionManager.isInSelectionMode || isSearching || isFabExpanded.value
+    app.arju.mpvgo.library.BlockTabSwipe(shouldHandleBack)
     androidx.activity.compose.BackHandler(enabled = shouldHandleBack) {
       when {
         isFabExpanded.value -> isFabExpanded.value = false
@@ -608,6 +609,7 @@ object FolderListScreen : Screen {
             !app.arju.mpvgo.library.MainScreen.getPermissionDeniedState(),
           onClick = { backstack.openGoBrowser() },
           modifier = Modifier.align(Alignment.BottomStart),
+          alignWithFabMenu = true,
         )
       }
 

@@ -408,6 +408,7 @@ fun FileSystemBrowserScreen(path: String? = null) {
 
   // Optimized predictive back handler for immediate response
   val shouldHandleBack = isInSelectionMode || isSearching || isFabExpanded.value
+  app.arju.mpvgo.library.BlockTabSwipe(shouldHandleBack)
   BackHandler(enabled = shouldHandleBack) {
     when {
       isFabExpanded.value -> isFabExpanded.value = false
@@ -843,6 +844,7 @@ fun FileSystemBrowserScreen(path: String? = null) {
               !app.arju.mpvgo.library.MainScreen.getPermissionDeniedState(),
             onClick = { backstack.openGoBrowser() },
             modifier = Modifier.align(Alignment.BottomStart),
+            alignWithFabMenu = true,
           )
         }
       }
