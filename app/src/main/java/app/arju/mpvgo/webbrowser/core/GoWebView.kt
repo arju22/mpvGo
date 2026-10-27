@@ -58,6 +58,12 @@ internal interface TabHost {
   fun onTitle(tab: BrowserTab, title: String)
 
   fun onPageFinished(tab: BrowserTab, view: WebView)
+
+  /** The page asked to download a file (Content-Disposition: attachment, unknown types ...). */
+  fun onDownloadStart(tab: BrowserTab, url: String, contentDisposition: String?, mimeType: String?)
+
+  /** The user long-pressed a link. */
+  fun onLinkLongPress(tab: BrowserTab, url: String)
 }
 
 internal class GoWebViewFactory(
@@ -146,8 +152,39 @@ internal class GoWebViewFactory(
     }
     webView.webViewClient = Client(tab, host)
     webView.webChromeClient = Chrome(tab, host)
+    webView.setDownloadListener { url, _, contentDisposition, mimeType, _ ->
+      host.onDownloadStart(tab, url, contentDisposition, mimeType)
+    }
+    webView.setOnLongClickListener { onLongPress(it as WebView, tab, host) }
     return webView
   }
+
+  private fun onLongPress(
+    view: WebView,
+    tab: BrowserTab,
+    host: TabHost,
+  ): Boolean {
+    val hit = view.hitTestResult
+    return when (hit.type) {
+      WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
+        val url = hit.extra?.takeIf(::isWebLink) ?: return false
+        host.onLinkLongPress(tab, url)
+        true
+      }
+      WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+        val handler =
+          android.os.Handler(android.os.Looper.getMainLooper()) { msg ->
+            msg.data.getString("url")?.takeIf(::isWebLink)?.let { host.onLinkLongPress(tab, it) }
+            true
+          }
+        view.requestFocusNodeHref(handler.obtainMessage())
+        true
+      }
+      else -> false
+    }
+  }
+
+  private fun isWebLink(url: String) = url.startsWith("http://", true) || url.startsWith("https://", true)
 
   /** Applies the browser settings that can change while a tab is open. */
   @SuppressLint("SetJavaScriptEnabled", "RequiresFeature")

@@ -14,6 +14,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebStorage
 import android.webkit.WebView
 import androidx.webkit.JavaScriptReplyProxy
+import app.arju.mpvgo.downloader.ui.DownloadDraft
 import app.arju.mpvgo.player.MediaRequest
 import app.arju.mpvgo.webbrowser.adblock.AdBlockPreferences
 import app.arju.mpvgo.webbrowser.adblock.AdBlocker
@@ -62,6 +63,12 @@ class TabManager(
     data class PopupBlocked(val tabId: Long) : Event
 
     data class Fullscreen(val view: View?, val callback: WebChromeClient.CustomViewCallback?) : Event
+
+    /** The page started a file download. */
+    data class Download(val tabId: Long, val draft: DownloadDraft) : Event
+
+    /** Long-press on a link: [media] is set when the link itself is a video. */
+    data class LinkMenu(val tabId: Long, val url: String, val media: DetectedMedia?) : Event
   }
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -280,6 +287,10 @@ class TabManager(
     input: String,
   ) {
     val url = UrlInput.toUrl(input, prefs.searchTemplate())
+    if (url != tab.pageUrl) {
+      tab.sniffer.reset()
+      tab._blocked.value = 0
+    }
     tab.pageUrl = url
     tab._url.value = url
     factory.load(webViewFor(tab), url)
@@ -472,6 +483,55 @@ class TabManager(
       isPrivate = tab.isPrivate,
       skipRecents = !tab.isPrivate && !prefs.addWebVideosToRecents.get(),
     )
+  }
+
+  /** What to download for [media], with the page's headers and cookies. */
+  fun draftFor(
+    tab: BrowserTab,
+    media: DetectedMedia,
+  ): DownloadDraft = BrowserDownloads.draft(buildRequest(tab, media), media.mime)
+
+  /** A plain link on the page, treated as a single-file stream. */
+  fun linkMedia(
+    tab: BrowserTab,
+    url: String,
+    mime: String? = null,
+    title: String? = null,
+  ): DetectedMedia =
+    DetectedMedia(
+      url = url,
+      kind = MediaClassifier.classify(url, mime) ?: MediaKind.FILE,
+      mime = mime,
+      frameUrl = tab.pageUrl,
+      pageUrl = tab.pageUrl,
+      pageTitle = title.orEmpty(),
+      size = -1,
+      audioOnly = MediaClassifier.isAudioOnly(url, mime),
+      seq = 0,
+    )
+
+  override fun onDownloadStart(
+    tab: BrowserTab,
+    url: String,
+    contentDisposition: String?,
+    mimeType: String?,
+  ) {
+    val mime = mimeType?.takeIf { it.isNotBlank() && it != "application/octet-stream" }
+    val name = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
+    val isMedia = app.arju.mpvgo.downloader.engine.DownloadNaming.extensionOf(name) != null ||
+      mime?.startsWith("video/") == true || mime?.startsWith("audio/") == true ||
+      MediaClassifier.classify(url) != null
+    val draft = draftFor(tab, linkMedia(tab, url, mime, name.substringBeforeLast('.')))
+      .let { if (isMedia) it else it.copy(fileName = app.arju.mpvgo.downloader.engine.DownloadNaming.sanitize(name)) }
+    _events.tryEmit(Event.Download(tab.id, draft))
+  }
+
+  override fun onLinkLongPress(
+    tab: BrowserTab,
+    url: String,
+  ) {
+    val media = MediaClassifier.classify(url)?.let { linkMedia(tab, url) }
+    _events.tryEmit(Event.LinkMenu(tab.id, url, media))
   }
 
   // ---- TabHost ----

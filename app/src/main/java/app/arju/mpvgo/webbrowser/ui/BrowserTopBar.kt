@@ -430,7 +430,11 @@ private fun OverflowMenu(
 ) {
   var open by remember { mutableStateOf(false) }
   Box {
-    IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, "More") }
+    IconButton(onClick = { open = true }) {
+      BadgedBox(badge = { if (state.activeDownloads > 0) Badge { Text("${state.activeDownloads}") } }) {
+        Icon(Icons.Filled.MoreVert, "More")
+      }
+    }
     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
       val pick = { action: BrowserAction ->
         open = false

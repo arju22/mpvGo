@@ -27,7 +27,14 @@ data class DownloadDraft(
   val isPrivate: Boolean = false,
   /** Show the sheet even when "Ask before every download" is off. */
   val forceSheet: Boolean = false,
+  /** The site's own file name, for non-video files (keeps .zip, .pdf…). */
+  val fileName: String? = null,
 ) {
+  /** [fileName] while the link is unchanged, else a suggested video name. */
+  fun suggestName(link: String = url, isHls: Boolean = app.arju.mpvgo.downloader.engine.DownloadNaming.isHlsUrl(link, mimeType)): String =
+    fileName?.takeIf { link.trim() == url.trim() && !isHls }
+      ?: app.arju.mpvgo.downloader.engine.DownloadNaming.suggest(link, title, null, mimeType, isHls)
+
   companion object {
     fun from(entity: DownloadEntity) = DownloadDraft(
       url = entity.url,
@@ -42,6 +49,23 @@ data class DownloadDraft(
     )
   }
 }
+
+/** Queues [this] as is, with a suggested file name (no sheet). */
+fun DownloadDraft.toNewDownload(
+  fileName: String? = null,
+  isHls: Boolean = app.arju.mpvgo.downloader.engine.DownloadNaming.isHlsUrl(url, mimeType),
+) = app.arju.mpvgo.downloader.NewDownload(
+  url = url.trim(),
+  fileName = fileName ?: suggestName(url, isHls),
+  title = title,
+  mimeType = mimeType,
+  isHls = isHls,
+  userAgent = userAgent,
+  referer = referer,
+  cookies = cookies,
+  sourcePageUrl = pageUrl,
+  isPrivate = isPrivate,
+)
 
 /** One pending request at a time, shown by [DownloadRequestHost] above every screen. */
 object DownloadRequests {
@@ -106,6 +130,18 @@ object DownloadPlayback {
 
   fun playCompleted(context: Context, entity: DownloadEntity) {
     val video = entity.toVideo() ?: return
+    if (entity.isPrivate) {
+      // Private downloads never appear in Recents.
+      context.startActivity(
+        android.content.Intent(android.content.Intent.ACTION_VIEW, video.uri)
+          .setClass(context, app.arju.mpvgo.player.PlayerActivity::class.java)
+          .putExtra("internal_launch", true)
+          .putExtra("file_path", video.path)
+          .putExtra("launch_source", "downloads")
+          .putExtra(MediaRequest.EXTRA_NO_RECENTS, true),
+      )
+      return
+    }
     app.arju.mpvgo.core.utils.media.MediaUtils.playFile(video, context, "downloads")
   }
 

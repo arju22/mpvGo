@@ -60,6 +60,12 @@ class MediaSniffer(
     _drm.value = true
   }
 
+  /** "Clear list": forgets what was found so far; new streams still show up. */
+  @Synchronized
+  fun clear() {
+    _media.value = emptyList()
+  }
+
   fun onRequest(
     url: String,
     mime: String?,

@@ -63,6 +63,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -76,6 +78,26 @@ import app.arju.mpvgo.core.preferences.preference.collectAsState
 import app.arju.mpvgo.core.presentation.Screen
 import app.arju.mpvgo.core.ui.LocalBackStack
 import app.arju.mpvgo.downloader.DownloadCounts
+import app.arju.mpvgo.downloader.DownloadManager
+import app.arju.mpvgo.downloader.DownloadNotifications
+import app.arju.mpvgo.downloader.data.DownloadEntity
+import app.arju.mpvgo.downloader.ui.DownloadDraft
+import app.arju.mpvgo.downloader.ui.DownloadPlayback
+import app.arju.mpvgo.downloader.ui.DownloadRequests
+import app.arju.mpvgo.downloader.ui.toNewDownload
+import app.arju.mpvgo.webbrowser.core.BrowserDownloads
+import app.arju.mpvgo.webbrowser.core.LinkRefresh
+import app.arju.mpvgo.webbrowser.core.VideoTapMode
+import app.arju.mpvgo.webbrowser.ui.AlreadyDownloadedDialog
+import app.arju.mpvgo.webbrowser.ui.CantDownloadDialog
+import app.arju.mpvgo.webbrowser.ui.FoundVideosSheet
+import app.arju.mpvgo.webbrowser.ui.LinkAction
+import app.arju.mpvgo.webbrowser.ui.LinkMenuSheet
+import app.arju.mpvgo.webbrowser.ui.VideoAskDialog
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withTimeoutOrNull
 import app.arju.mpvgo.webbrowser.adblock.AdBlockPreferences
 import app.arju.mpvgo.webbrowser.adblock.SiteMatcher
 import android.content.ClipboardManager
@@ -142,6 +164,34 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
     var drawerPrivate by remember { mutableStateOf(false) }
     var libraryPage by rememberSaveable { mutableStateOf<LibraryTab?>(null) }
     var bookmarkEdit by remember { mutableStateOf<BookmarkEntity?>(null) }
+    val downloadManager = koinInject<DownloadManager>()
+    val downloads by remember { downloadManager.downloads }.collectAsState(initial = emptyList())
+    var already by remember { mutableStateOf<Pair<DownloadEntity, DownloadDraft>?>(null) }
+    var cantDownload by remember { mutableStateOf<String?>(null) }
+    var linkMenu by remember { mutableStateOf<TabManager.Event.LinkMenu?>(null) }
+
+    /** Every browser download goes through here: blocked sites, then "Already downloaded", then the sheet. */
+    fun download(
+      page: String,
+      draft: DownloadDraft,
+      drm: Boolean = false,
+    ) {
+      BrowserDownloads.blocked(page, draft.url, drm)?.let {
+        cantDownload = it.message
+        return
+      }
+      BrowserDownloads.findCompleted(downloads, draft.url)?.let {
+        already = it to draft
+        return
+      }
+      DownloadRequests.request(draft)
+    }
+
+    fun copyLink(link: String) {
+      val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+      clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Link", link))
+      Toast.makeText(context, "Link copied", Toast.LENGTH_SHORT).show()
+    }
 
     var opened by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -179,6 +229,11 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
           is TabManager.Event.Launch -> context.startActivity(event.request.toIntent(context))
           is TabManager.Event.ProtectedVideo -> message = "This video is protected (DRM) and plays only on the page."
           is TabManager.Event.PopupBlocked -> Unit
+          is TabManager.Event.Download -> {
+            val from = tabs.tab(event.tabId)
+            download(from?.pageUrl.orEmpty(), event.draft)
+          }
+          is TabManager.Event.LinkMenu -> linkMenu = event
           is TabManager.Event.Fullscreen -> {
             fullscreen?.second?.onCustomViewHidden()
             fullscreen = if (event.view != null && event.callback != null) event.view to event.callback else null
@@ -191,6 +246,33 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
     // Closing every tab leaves a fresh start page rather than an empty browser.
     LaunchedEffect(tabList.isEmpty(), opened) {
       if (opened && tabs.tabs.value.isEmpty()) tabs.newTab()
+    }
+    // "Refresh link": the failed download's source page is open; wait for its video and swap the link.
+    val refresh by LinkRefresh.pending.collectAsState()
+    LaunchedEffect(refresh, tab) {
+      val request = refresh ?: return@LaunchedEffect
+      val current = tab ?: return@LaunchedEffect
+      val entity = downloadManager.get(request.downloadId)
+      if (entity == null) {
+        LinkRefresh.finish(request)
+        return@LaunchedEffect
+      }
+      val site = SiteMatcher.host(request.pageUrl).removePrefix("www.")
+      val pick: (List<DetectedMedia>) -> DetectedMedia? = { found ->
+        if (SiteMatcher.host(current.pageUrl).removePrefix("www.") != site) {
+          null
+        } else {
+          BrowserDownloads.pickRefresh(found.filter { it.url != entity.url }, entity.url, entity.isHls)
+        }
+      }
+      val quick = withTimeoutOrNull(4_000) { current.sniffer.media.map(pick).filterNotNull().first() }
+      if (quick == null) Toast.makeText(context, "Play the video on this page to refresh the download link", Toast.LENGTH_LONG).show()
+      val found = quick ?: current.sniffer.media.map(pick).filterNotNull().first()
+      val fresh = tabs.buildRequest(current, found)
+      downloadManager.updateLink(entity.id, fresh.url, fresh.userAgent, fresh.referer, fresh.cookies)
+      DownloadNotifications.cancel(context, entity.id)
+      LinkRefresh.finish(request)
+      Toast.makeText(context, "Link refreshed. \"${entity.fileName}\" is downloading again.", Toast.LENGTH_LONG).show()
     }
 
     val webView = tab?.let { tabs.webViewFor(it) }
@@ -499,24 +581,35 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
 
     if (showMedia && tab != null) {
       val media by tab.sniffer.media.collectAsState()
-      ModalBottomSheet(onDismissRequest = { showMedia = false }) {
-        Text("Videos on this page", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
-        LazyColumn {
-          items(media.sortedByDescending { it.seq }, key = { it.key }) { item ->
-            ListItem(
-              headlineContent = { Text(item.url.substringAfterLast('/').substringBefore('?').ifBlank { item.url }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-              supportingContent = { Text(listOfNotNull(item.kind.name, item.quality, if (item.audioOnly) "audio" else null).joinToString(" · ")) },
-              trailingContent = {
-                IconButton(onClick = {
-                  showMedia = false
-                  tabs.play(tab, item)
-                }) { Icon(Icons.Filled.PlayArrow, "Play in mpvGo") }
-              },
-            )
+      FoundVideosSheet(
+        host = SiteMatcher.host(tabUrl),
+        media = media,
+        isDownloaded = { BrowserDownloads.findCompleted(downloads, it.url) != null },
+        onPlay = {
+          showMedia = false
+          tabs.play(tab, it)
+        },
+        onDownload = {
+          showMedia = false
+          download(tab.pageUrl, tabs.draftFor(tab, it), tab.sniffer.drm.value)
+        },
+        onDownloadAll = { items ->
+          showMedia = false
+          val blocked = items.firstNotNullOfOrNull { BrowserDownloads.blocked(tab.pageUrl, it.url, tab.sniffer.drm.value) }
+          if (blocked != null) {
+            cantDownload = blocked.message
+          } else {
+            val drafts = items.map { tabs.draftFor(tab, it) }
+            scope.launch { drafts.forEach { downloadManager.enqueue(it.toNewDownload()) } }
+            Toast.makeText(context, if (drafts.size == 1) "Downloading 1 video" else "Downloading ${drafts.size} videos", Toast.LENGTH_SHORT).show()
           }
-        }
-        Spacer(Modifier.height(24.dp))
-      }
+        },
+        onClear = {
+          tab.sniffer.clear()
+          showMedia = false
+        },
+        onDismiss = { showMedia = false },
+      )
     }
 
     if (showSite && tab != null) {
@@ -539,35 +632,81 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
     }
 
     ask?.let { event ->
-      var rememberSite by remember(event) { mutableStateOf(true) }
-      AlertDialog(
-        onDismissRequest = {
+      val askTab = tabs.tab(event.tabId)
+      VideoAskDialog(
+        host = event.host,
+        title = event.media?.pageTitle?.ifBlank { null } ?: askTab?.title?.value.orEmpty(),
+        media = event.media,
+        showRemember = prefs.mode() == VideoTapMode.ASK_ONCE_PER_SITE,
+        onPlay = { always ->
+          tabs.answerAsk(event.tabId, event.host, SiteChoice.MPVGO, always, event.media)
+          ask = null
+        },
+        onDownload = {
+          tabs.cancelAsk(event.tabId)
+          ask = null
+          val media = event.media
+          if (askTab != null && media != null) download(askTab.pageUrl, tabs.draftFor(askTab, media), askTab.sniffer.drm.value)
+        },
+        onWebPlayer = { always ->
+          tabs.answerAsk(event.tabId, event.host, SiteChoice.WEB, always, event.media)
+          ask = null
+        },
+        onCopyLink = { event.media?.url?.let(::copyLink) },
+        onDismiss = {
           tabs.cancelAsk(event.tabId)
           ask = null
         },
-        title = { Text("Play this video in mpvGo?") },
-        text = {
-          Column {
-            Text(if (event.media != null) "mpvGo found the stream on ${event.host}." else "No stream found yet on ${event.host}; you can play it on the page.")
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { rememberSite = !rememberSite }) {
-              Checkbox(checked = rememberSite, onCheckedChange = { rememberSite = it })
-              Text("Remember for this site")
-            }
+      )
+    }
+
+    linkMenu?.let { event ->
+      val menuTab = tabs.tab(event.tabId)
+      LinkMenuSheet(
+        url = event.url,
+        isPrivateTab = menuTab?.isPrivate == true,
+        isVideo = event.media != null,
+        onAction = { action ->
+          linkMenu = null
+          when (action) {
+            LinkAction.NEW_TAB -> tabs.newTab(event.url, private = menuTab?.isPrivate == true, select = false, openerId = event.tabId)
+            LinkAction.PRIVATE_TAB -> tabs.newTab(event.url, private = true, select = false, openerId = event.tabId)
+            LinkAction.PLAY -> if (menuTab != null && event.media != null) tabs.play(menuTab, event.media)
+            LinkAction.DOWNLOAD ->
+              if (menuTab != null) {
+                download(menuTab.pageUrl, tabs.draftFor(menuTab, event.media ?: tabs.linkMedia(menuTab, event.url)))
+              }
+            LinkAction.COPY -> copyLink(event.url)
+            LinkAction.SHARE ->
+              context.startActivity(
+                Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, event.url), null),
+              )
+          }
+          if (action == LinkAction.NEW_TAB || action == LinkAction.PRIVATE_TAB) {
+            Toast.makeText(context, "Opened in background tab", Toast.LENGTH_SHORT).show()
           }
         },
-        confirmButton = {
-          TextButton(enabled = event.media != null, onClick = {
-            tabs.answerAsk(event.tabId, event.host, SiteChoice.MPVGO, rememberSite, event.media)
-            ask = null
-          }) { Text("mpvGo") }
-        },
-        dismissButton = {
-          TextButton(onClick = {
-            tabs.answerAsk(event.tabId, event.host, SiteChoice.WEB, rememberSite, event.media)
-            ask = null
-          }) { Text("Web player") }
-        },
+        onDismiss = { linkMenu = null },
       )
+    }
+
+    already?.let { (entity, draft) ->
+      AlreadyDownloadedDialog(
+        fileName = entity.fileName,
+        onPlay = {
+          already = null
+          DownloadPlayback.playCompleted(context, entity)
+        },
+        onDownloadAgain = {
+          already = null
+          DownloadRequests.request(draft.copy(forceSheet = true))
+        },
+        onDismiss = { already = null },
+      )
+    }
+
+    cantDownload?.let {
+      CantDownloadDialog(it) { cantDownload = null }
     }
 
     message?.let {
@@ -645,13 +784,44 @@ private fun MediaFab(
   val media by tab.sniffer.media.collectAsState()
   val count = media.count { !it.audioOnly }
   if (count == 0) return
-  FloatingActionButton(
-    onClick = onClick,
-    containerColor = MaterialTheme.colorScheme.primaryContainer,
-    modifier = modifier,
-  ) {
-    BadgedBox(badge = { Badge { Text("$count") } }) {
-      Icon(Icons.Filled.SmartDisplay, if (count == 1) "1 video found" else "$count videos found")
+  val live by koinInject<DownloadManager>().live.collectAsState()
+  val progress = BrowserDownloads.progress(live.values)
+  val ringColor = MaterialTheme.colorScheme.primary
+  val trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+  val angle =
+    if (progress != null && progress < 0f) {
+      androidx.compose.animation.core.rememberInfiniteTransition(label = "dlRing").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1200, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "dlRingAngle",
+      ).value
+    } else {
+      0f
+    }
+  // Drawn outside the FAB's bounds so the button keeps its place.
+  val ring =
+    Modifier.drawBehind {
+      val p = progress ?: return@drawBehind
+      val radius = 38.dp.toPx()
+      val stroke = androidx.compose.ui.graphics.drawscope.Stroke(4.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+      val topLeft = center - androidx.compose.ui.geometry.Offset(radius, radius)
+      val arcSize = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+      drawCircle(trackColor, radius, style = stroke)
+      if (p < 0f) {
+        drawArc(ringColor, angle - 90f, 90f, false, topLeft, arcSize, style = stroke)
+      } else {
+        drawArc(ringColor, -90f, 360f * p, false, topLeft, arcSize, style = stroke)
+      }
+    }
+  Box(modifier.then(ring), contentAlignment = Alignment.Center) {
+    FloatingActionButton(
+      onClick = onClick,
+      containerColor = MaterialTheme.colorScheme.primaryContainer,
+    ) {
+      BadgedBox(badge = { Badge { Text("$count") } }) {
+        Icon(Icons.Filled.SmartDisplay, if (count == 1) "1 video found" else "$count videos found")
+      }
     }
   }
 }

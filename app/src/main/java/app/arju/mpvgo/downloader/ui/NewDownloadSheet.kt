@@ -88,8 +88,7 @@ fun DownloadRequestHost() {
   val current = draft ?: return
   if (!current.forceSheet && !prefs.askBeforeEveryDownload.get() && current.url.isNotBlank()) {
     LaunchedEffect(current) {
-      val isHls = DownloadNaming.isHlsUrl(current.url, current.mimeType)
-      start(current.toRequest(DownloadNaming.suggest(current.url, current.title, null, current.mimeType, isHls), isHls), playNow = false)
+      start(current.toNewDownload(), playNow = false)
     }
     return
   }
@@ -102,18 +101,7 @@ fun DownloadRequestHost() {
   )
 }
 
-private fun DownloadDraft.toRequest(fileName: String, isHls: Boolean) = NewDownload(
-  url = url.trim(),
-  fileName = fileName,
-  title = title,
-  mimeType = mimeType,
-  isHls = isHls,
-  userAgent = userAgent,
-  referer = referer,
-  cookies = cookies,
-  sourcePageUrl = pageUrl,
-  isPrivate = isPrivate,
-)
+private fun DownloadDraft.toRequest(fileName: String, isHls: Boolean) = toNewDownload(fileName, isHls)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -139,7 +127,7 @@ private fun NewDownloadSheet(
   val isHls = valid && DownloadNaming.isHlsUrl(trimmed, draft.mimeType)
 
   LaunchedEffect(trimmed) {
-    if (!nameEdited) name = if (valid) DownloadNaming.suggest(trimmed, draft.title, null, draft.mimeType, isHls) else ""
+    if (!nameEdited) name = if (valid) draft.suggestName(trimmed, isHls) else ""
   }
   LaunchedEffect(trimmed, isHls) {
     variants = emptyList()
@@ -158,7 +146,7 @@ private fun NewDownloadSheet(
   }
 
   fun confirm(startNow: Boolean) {
-    val fileName = DownloadNaming.sanitize(name.ifBlank { DownloadNaming.suggest(trimmed, draft.title, null, draft.mimeType, isHls) })
+    val fileName = DownloadNaming.sanitize(name.ifBlank { draft.suggestName(trimmed, isHls) })
     onConfirm(
       draft.copy(url = trimmed).toRequest(fileName, isHls).copy(
         folder = folder,

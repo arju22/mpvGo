@@ -55,6 +55,16 @@ This file is updated with every batch of changes and before every release push.
   JavaScript, reset). Suggestions are looked up on the device; nothing you type is sent until you
   search. Browser settings also appear in the main settings search.
 - adblock-rust (MPL-2.0) is listed under Open source licences.
+- Downloads from the browser: when a page has a video, the Ask popup offers Download as well as
+  Play. The found-videos sheet shows a quality choice for streams, marks videos you have already
+  downloaded, names files after the page title and has "Download all". Long-press a link to open
+  it in a new tab, copy it, play it or download it. Other file links (for example a .zip) open
+  the New download sheet with the site's file name. If a file is already downloaded you can play
+  it or download it again. Protected (DRM) videos, YouTube and in-page (blob) videos show why they
+  can't be downloaded. A failed download whose link has expired offers "Refresh link": it opens
+  the page again and picks up the new link when you play the video. The video button shows a
+  progress ring and the menu shows how many downloads are running. Downloads from a private tab
+  don't appear in Recents.
 
 ### Changed
 - Network streaming moved out of the bottom bar. Open it from the Play button menu (new
@@ -63,6 +73,7 @@ This file is updated with every batch of changes and before every release push.
   (new "Gestures" section at the end). The saved setting is kept.
 
 ### Fixed
+- Browser: the list of videos found on a page now clears when you type a new address.
 - Subtitle gestures: a short drag on the subtitle while the controls were hidden also counted
   as a tap and brought up the controls, which lifted the subtitle away from the finger. A touch
   claimed by a subtitle gesture is no longer a tap; a plain tap still toggles the controls.

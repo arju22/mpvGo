@@ -91,6 +91,7 @@ import app.arju.mpvgo.library.states.EmptyState
 import app.arju.mpvgo.webbrowser.GoBrowserFab
 import app.arju.mpvgo.webbrowser.MainFabBottomPadding
 import app.arju.mpvgo.webbrowser.openGoBrowser
+import app.arju.mpvgo.webbrowser.openLinkInBrowser
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -249,7 +250,7 @@ fun DownloadsContent() {
                     onLongClick = longClick,
                     onDelete = { deleteIds = setOf(entity.id) },
                     onShowInFolder = { path -> backstack.add(FileSystemDirectoryScreen(path)) },
-                    onOpenSourcePage = { backstack.openGoBrowser() },
+                    onOpenSourcePage = { entity.sourcePageUrl?.let(backstack::openLinkInBrowser) },
                   )
                   DownloadStatus.Failed -> FailedItem(
                     entity = entity,
@@ -258,6 +259,12 @@ fun DownloadsContent() {
                     onLongClick = longClick,
                     onRetry = { manager.retry(listOf(entity.id)) },
                     onEditLink = { editLinkFor = entity },
+                    onRefreshLink =
+                      if (app.arju.mpvgo.webbrowser.core.LinkRefresh.canRefresh(entity)) {
+                        { app.arju.mpvgo.webbrowser.core.LinkRefresh.start(entity)?.let(backstack::openLinkInBrowser) }
+                      } else {
+                        null
+                      },
                     onRemove = { manager.delete(listOf(entity.id), deleteFiles = false) },
                   )
                   else -> ActiveItem(
@@ -504,6 +511,7 @@ private fun formatEta(seconds: Long): String = when {
   else -> "${seconds}s"
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun FailedItem(
   entity: DownloadEntity,
@@ -513,6 +521,7 @@ private fun FailedItem(
   onRetry: () -> Unit,
   onEditLink: () -> Unit,
   onRemove: () -> Unit,
+  onRefreshLink: (() -> Unit)? = null,
 ) {
   ItemCard(selected, onClick, onLongClick) {
     Text(entity.fileName, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -521,11 +530,14 @@ private fun FailedItem(
       style = MaterialTheme.typography.bodySmall,
       color = MaterialTheme.colorScheme.error,
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
       TextButton(onClick = onRetry) {
         Icon(Icons.Filled.Refresh, null)
         Spacer(Modifier.width(4.dp))
         Text("Retry")
+      }
+      if (onRefreshLink != null) {
+        TextButton(onClick = onRefreshLink) { Text("Refresh link") }
       }
       TextButton(onClick = onEditLink) {
         Icon(Icons.Filled.Edit, null)

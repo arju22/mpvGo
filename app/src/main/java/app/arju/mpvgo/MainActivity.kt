@@ -112,6 +112,7 @@ class MainActivity : ComponentActivity() {
 
   private fun handleDownloadsIntent(intent: android.content.Intent?) {
     app.arju.mpvgo.webbrowser.BrowserLinks.linkFrom(intent)?.let { browserLink.value = it }
+    app.arju.mpvgo.webbrowser.core.LinkRefresh.startFrom(intent)?.let { browserLink.value = it }
     if (intent?.getBooleanExtra(app.arju.mpvgo.downloader.DownloadNotifications.EXTRA_OPEN_DOWNLOADS, false) == true) {
       intent.removeExtra(app.arju.mpvgo.downloader.DownloadNotifications.EXTRA_OPEN_DOWNLOADS)
       app.arju.mpvgo.downloader.DownloadCounts.requestOpen()

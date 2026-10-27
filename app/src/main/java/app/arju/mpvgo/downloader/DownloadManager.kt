@@ -199,11 +199,27 @@ class DownloadManager(
   }
 
   /** "Edit link" / "Refresh link": swap in a fresh URL and keep the bytes already on disk when possible. */
-  fun updateLink(id: Long, url: String) = scope.launch {
+  fun updateLink(
+    id: Long,
+    url: String,
+    userAgent: String? = null,
+    referer: String? = null,
+    cookies: String? = null,
+  ) = scope.launch {
     val e = dao.get(id) ?: return@launch
     jobs[id]?.cancel(CancellationException("relink"))
     jobs[id]?.join()
-    dao.update(e.copy(url = url, status = DownloadStatus.Queued, failReason = null, retries = 0))
+    dao.update(
+      e.copy(
+        url = url,
+        userAgent = userAgent ?: e.userAgent,
+        referer = referer ?: e.referer,
+        cookies = cookies ?: e.cookies,
+        status = DownloadStatus.Queued,
+        failReason = null,
+        retries = 0,
+      ),
+    )
     schedule()
   }
 

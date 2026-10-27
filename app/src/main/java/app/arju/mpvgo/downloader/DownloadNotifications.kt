@@ -93,7 +93,10 @@ object DownloadNotifications {
     if (uri != null) {
       val play = Intent(Intent.ACTION_VIEW, uri, context, PlayerActivity::class.java)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        .apply { e.finalPath?.let { putExtra("file_path", it) } }
+        .apply {
+          e.finalPath?.let { putExtra("file_path", it) }
+          if (e.isPrivate) putExtra(app.arju.mpvgo.player.MediaRequest.EXTRA_NO_RECENTS, true)
+        }
       b.setContentIntent(PendingIntent.getActivity(context, e.id.toInt() * 4, play, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
       b.addAction(0, "Play", PendingIntent.getActivity(context, e.id.toInt() * 4 + 1, play, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
       val share = Intent.createChooser(
@@ -114,7 +117,15 @@ object DownloadNotifications {
       .setAutoCancel(true)
       .setContentIntent(openDownloads(context))
       .addAction(0, "Retry", serviceAction(context, DownloadService.ACTION_RETRY, e.id))
-      .addAction(0, "Open", openDownloads(context))
+    if (app.arju.mpvgo.webbrowser.core.LinkRefresh.canRefresh(e)) {
+      val refresh = Intent(context, MainActivity::class.java)
+        .putExtra(app.arju.mpvgo.webbrowser.core.LinkRefresh.EXTRA_ID, e.id)
+        .putExtra(app.arju.mpvgo.webbrowser.core.LinkRefresh.EXTRA_PAGE, e.sourcePageUrl)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+      b.addAction(0, "Refresh link", PendingIntent.getActivity(context, e.id.toInt() * 4 + 3, refresh, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+    } else {
+      b.addAction(0, "Open", openDownloads(context))
+    }
     notify(context, (10_000 + e.id).toInt(), b.build())
   }
 
