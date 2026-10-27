@@ -82,12 +82,20 @@ import app.arju.mpvgo.webbrowser.core.BrowserTab
 import app.arju.mpvgo.webbrowser.core.DetectedMedia
 import app.arju.mpvgo.webbrowser.core.SearchEngine
 import app.arju.mpvgo.webbrowser.core.SiteChoice
+import app.arju.mpvgo.webbrowser.core.SpeedDial
 import app.arju.mpvgo.webbrowser.core.SpeedDials
 import app.arju.mpvgo.webbrowser.core.TabManager
 import app.arju.mpvgo.webbrowser.core.TopBarButton
+import app.arju.mpvgo.webbrowser.library.BookmarkEntity
+import app.arju.mpvgo.webbrowser.library.BookmarkTree
+import app.arju.mpvgo.webbrowser.library.BrowserLibrary
+import app.arju.mpvgo.webbrowser.ui.BookmarkEditDialog
 import app.arju.mpvgo.webbrowser.ui.BrowserAction
+import app.arju.mpvgo.webbrowser.ui.BrowserLibraryPage
 import app.arju.mpvgo.webbrowser.ui.BrowserTopBar
 import app.arju.mpvgo.webbrowser.ui.FindBar
+import app.arju.mpvgo.webbrowser.ui.LibraryTab
+import app.arju.mpvgo.webbrowser.ui.OpenMode
 import app.arju.mpvgo.webbrowser.ui.PrivateColors
 import app.arju.mpvgo.webbrowser.ui.PullRefreshLayout
 import app.arju.mpvgo.webbrowser.ui.SiteSettingsContent
@@ -110,6 +118,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
     val scope = rememberCoroutineScope()
     val tabs = koinInject<TabManager>()
     val adPrefs = koinInject<AdBlockPreferences>()
+    val library = koinInject<BrowserLibrary>()
     val prefs = tabs.prefs
     val tabList by tabs.tabs.collectAsState()
     val activeId by tabs.activeId.collectAsState()
@@ -126,12 +135,19 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
     var message by remember { mutableStateOf<String?>(null) }
     val drawer = rememberDrawerState(DrawerValue.Closed)
     var drawerPrivate by remember { mutableStateOf(false) }
+    var libraryPage by rememberSaveable { mutableStateOf<LibraryTab?>(null) }
+    var bookmarkEdit by remember { mutableStateOf<BookmarkEntity?>(null) }
 
     var opened by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
       if (opened) return@LaunchedEffect
       opened = true
-      if (url != null) tabs.newTab(url) else if (tabs.active == null) tabs.newTab()
+      if (url != null) {
+        tabs.restoreSession()
+        tabs.newTab(url)
+      } else if (tabs.active == null && !tabs.restoreSession()) {
+        tabs.newTab()
+      }
     }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(context, lifecycle) {
@@ -208,6 +224,17 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
     val progress by (tab?.progress ?: remember { MutableStateFlow(0) }).collectAsState()
     val isPrivate = tab?.isPrivate == true
     val adBlockOnSite = !SiteMatcher.isAllowed(tabUrl, allowedSites)
+    val bookmark by remember(tabUrl) { library.bookmarkFor(tabUrl) }.collectAsState(initial = null)
+
+    fun addToStartPage(
+      title: String,
+      address: String,
+    ): Boolean {
+      val dials = prefs.dials()
+      if (dials.size >= SpeedDials.MAX || dials.any { it.url == address }) return false
+      prefs.saveDials(dials + SpeedDial(title.take(40), address))
+      return true
+    }
 
     fun onAction(action: BrowserAction) {
       val t = tab ?: return
@@ -237,7 +264,11 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
         BrowserAction.DESKTOP -> tabs.setDesktop(t, !desktop)
         BrowserAction.SITE_SETTINGS -> showSite = true
         BrowserAction.CLOSE_BROWSER -> backstack.removeLastOrNull()
-        BrowserAction.BOOKMARK_PAGE, BrowserAction.BOOKMARKS, BrowserAction.HISTORY, BrowserAction.SETTINGS ->
+        BrowserAction.BOOKMARK_PAGE ->
+          if (!startPage) bookmarkEdit = bookmark ?: BookmarkEntity(title = t.title.value.ifBlank { tabUrl }, url = tabUrl)
+        BrowserAction.BOOKMARKS -> libraryPage = LibraryTab.BOOKMARKS
+        BrowserAction.HISTORY -> libraryPage = LibraryTab.HISTORY
+        BrowserAction.SETTINGS ->
           Toast.makeText(context, "Coming in the next update", Toast.LENGTH_SHORT).show()
       }
     }
@@ -245,7 +276,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
     val rootColor = if (isPrivate) PrivateColors.background else MaterialTheme.colorScheme.surface
     ModalNavigationDrawer(
       drawerState = drawer,
-      gesturesEnabled = true,
+      gesturesEnabled = libraryPage == null,
       drawerContent = {
         TabsDrawer(
           normal = tabList.filterNot { it.isPrivate },
@@ -301,6 +332,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
                     activeDownloads = activeDownloads,
                     adBlockOnSite = adBlockOnSite,
                     desktop = desktop,
+                    bookmarked = bookmark != null,
                   ),
                 onAction = ::onAction,
                 onSubmit = { text -> tabs.load(tab, text) },
@@ -366,7 +398,57 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
             modifier = Modifier.fillMaxSize(),
           )
         }
+        libraryPage?.let { page ->
+          BrowserLibraryPage(
+            initial = page,
+            library = library,
+            onOpen = { address, mode ->
+              libraryPage = null
+              closeFind()
+              when (mode) {
+                OpenMode.CURRENT -> tab?.let { tabs.load(it, address) } ?: tabs.newTab(address)
+                OpenMode.NEW_TAB -> tabs.newTab(address)
+                OpenMode.PRIVATE_TAB -> tabs.newTab(address, private = true)
+              }
+            },
+            onOpenMany = { urls ->
+              libraryPage = null
+              closeFind()
+              urls.forEachIndexed { i, u -> tabs.newTab(u, select = i == urls.lastIndex) }
+              Toast.makeText(context, "Opened ${urls.size} tabs", Toast.LENGTH_SHORT).show()
+            },
+            onAddToStartPage = ::addToStartPage,
+            onClearData = { request ->
+              tabs.clearBrowsingData(request.cookies, request.cache)
+              if (request.siteSettings) {
+                prefs.siteChoices.set(emptySet())
+                adPrefs.allowedSites.set(emptySet())
+              }
+            },
+            onClose = { libraryPage = null },
+          )
+        }
       }
+    }
+
+    bookmarkEdit?.let { item ->
+      val all by remember { library.bookmarks }.collectAsState(initial = emptyList())
+      BookmarkEditDialog(
+        initial = item,
+        isNew = item.id == 0L,
+        folders = BookmarkTree.folders(all),
+        onSave = { saved, toStart ->
+          scope.launch { library.save(saved) }
+          if (toStart) addToStartPage(saved.title, saved.url)
+          bookmarkEdit = null
+          if (saved.id == 0L) Toast.makeText(context, "Bookmark added", Toast.LENGTH_SHORT).show()
+        },
+        onDelete = {
+          scope.launch { library.deleteBookmarks(listOf(item.id)) }
+          bookmarkEdit = null
+        },
+        onDismiss = { bookmarkEdit = null },
+      )
     }
 
     if (showMedia && tab != null) {

@@ -68,5 +68,8 @@ class BrowserTab internal constructor(
   /** Set when this tab was opened by a page (window.open / target=_blank). */
   internal var openerId: Long? = null
 
+  /** Scroll position to restore once the remembered page has loaded. */
+  internal var pendingScrollY: Int = 0
+
   val isStartPage: Boolean get() = _url.value.isEmpty()
 }

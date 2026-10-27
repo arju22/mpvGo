@@ -39,7 +39,12 @@ This file is updated with every batch of changes and before every release push.
   box (swipe it to switch tabs), Bookmarks and Downloads buttons and a menu; a tabs drawer with
   normal and private tabs; find in page; desktop site per tab; pull to refresh; a per-site
   settings sheet (ad block, pop-ups, what happens when you tap a video); and a floating media
-  button with the number of videos found. Bookmarks, history and browser settings come next.
+  button with the number of videos found. Browser settings come next.
+- Go browser bookmarks and history: bookmark a page from the menu star (with folders and
+  "Also add to start page"); a Bookmarks and History page with search, folders, move, multi-select,
+  share, and import and export of browser bookmark files (HTML); history grouped by day, with
+  played videos tagged; clear browsing data by time range (history, cookies, cache, site settings).
+  Open tabs are remembered across restarts (private tabs never are).
 
 ### Changed
 - Network streaming moved out of the bottom bar. Open it from the Play button menu (new

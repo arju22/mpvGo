@@ -50,6 +50,13 @@ internal interface TabHost {
   fun onShowCustomView(view: View, callback: WebChromeClient.CustomViewCallback)
 
   fun onHideCustomView()
+
+  /** A page was committed to the tab's history (also fires for in-page navigation). */
+  fun onVisited(tab: BrowserTab, url: String)
+
+  fun onTitle(tab: BrowserTab, title: String)
+
+  fun onPageFinished(tab: BrowserTab, view: WebView)
 }
 
 internal class GoWebViewFactory(
@@ -276,6 +283,7 @@ internal class GoWebViewFactory(
       tab._progress.value = 100
       view.title?.takeIf { it.isNotBlank() }?.let { tab._title.value = it }
       updateNav(view)
+      host.onPageFinished(tab, view)
     }
 
     override fun doUpdateVisitedHistory(
@@ -286,6 +294,7 @@ internal class GoWebViewFactory(
       tab.pageUrl = url
       tab._url.value = url
       updateNav(view)
+      if (!isReload) host.onVisited(tab, url)
     }
 
     override fun onRenderProcessGone(
@@ -317,7 +326,10 @@ internal class GoWebViewFactory(
       view: WebView,
       title: String?,
     ) {
-      if (!title.isNullOrBlank()) tab._title.value = title
+      if (!title.isNullOrBlank()) {
+        tab._title.value = title
+        host.onTitle(tab, title)
+      }
     }
 
     override fun onReceivedIcon(

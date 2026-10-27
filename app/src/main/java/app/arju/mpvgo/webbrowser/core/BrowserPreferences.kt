@@ -26,6 +26,12 @@ class BrowserPreferences(store: PreferenceStore) {
   val topBarButtons = store.getString("browser_top_bar_buttons", "${TopBarButton.BOOKMARKS.name},${TopBarButton.DOWNLOADS.name}")
   val pullToRefresh = store.getBoolean("browser_pull_to_refresh", true)
 
+  /** Reopen the last normal tabs when the browser starts. Private tabs are never saved. */
+  val rememberTabs = store.getBoolean("browser_remember_tabs", true)
+
+  /** History older than this many days is removed; 0 keeps everything. */
+  val historyDays = store.getInt("browser_history_days", 90)
+
   fun engine(): SearchEngine = runCatching { SearchEngine.valueOf(searchEngine.get()) }.getOrDefault(SearchEngine.GOOGLE)
 
   fun searchTemplate(): String = engine().template(customSearchUrl.get())

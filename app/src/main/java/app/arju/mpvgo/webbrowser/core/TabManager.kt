@@ -9,16 +9,21 @@ import android.os.Bundle
 import android.os.Message
 import android.util.Log
 import android.view.View
+import android.webkit.CookieManager
 import android.webkit.WebChromeClient
+import android.webkit.WebStorage
 import android.webkit.WebView
 import androidx.webkit.JavaScriptReplyProxy
 import app.arju.mpvgo.player.MediaRequest
 import app.arju.mpvgo.webbrowser.adblock.AdBlockPreferences
 import app.arju.mpvgo.webbrowser.adblock.AdBlocker
 import app.arju.mpvgo.webbrowser.adblock.SiteMatcher
+import app.arju.mpvgo.webbrowser.library.BrowserLibrary
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -43,6 +48,7 @@ class TabManager(
   private val adBlocker: AdBlocker,
   adPrefs: AdBlockPreferences,
   val prefs: BrowserPreferences,
+  private val library: BrowserLibrary,
 ) : TabHost {
   sealed interface Event {
     /** The page started a video and the user should pick mpvGo or the web player. */
@@ -118,7 +124,91 @@ class TabManager(
     _tabs.value = _tabs.value + tab
     if (select) select(tab.id)
     if (!url.isNullOrBlank()) load(tab, url)
+    saveSession()
     return tab
+  }
+
+  /**
+   * Reopens the tabs saved by "Remember tabs". Only the active tab gets a WebView now; the
+   * others load when selected. Returns false when there was nothing to restore.
+   */
+  fun restoreSession(): Boolean {
+    if (_tabs.value.isNotEmpty() || !prefs.rememberTabs.get()) return false
+    val session = TabSession.read(appContext.filesDir) ?: return false
+    if (session.tabs.isEmpty()) return false
+    val restored =
+      session.tabs.map { saved ->
+        BrowserTab(nextId++, false, saved.url, scope, ::fetchText).also {
+          it._title.value = saved.title
+          it._desktop.value = saved.desktop
+          it.pendingScrollY = saved.scrollY
+          it.lastActive = 0
+        }
+      }
+    _tabs.value = restored
+    select(restored[session.active].id)
+    return true
+  }
+
+  private var saveJob: Job? = null
+
+  /** Writes the normal tabs to disk shortly after the last change. */
+  fun saveSession() {
+    saveJob?.cancel()
+    saveJob =
+      scope.launch {
+        delay(SAVE_DELAY)
+        writeSession()
+      }
+  }
+
+  private suspend fun writeSession() {
+    if (!prefs.rememberTabs.get()) {
+      withContext(Dispatchers.IO) { TabSession.file(appContext.filesDir).delete() }
+      return
+    }
+    val normal = _tabs.value.filterNot { it.isPrivate }
+    val session =
+      SavedSession(
+        tabs =
+          normal.map {
+            SavedTab(
+              url = it.url.value,
+              title = it.title.value,
+              desktop = it.desktop.value,
+              scrollY = it.webView?.scrollY ?: it.pendingScrollY,
+            )
+          },
+        active =
+          normal.indexOfFirst { it.id == _activeId.value }.takeIf { it >= 0 }
+            ?: normal.indices.maxByOrNull { normal[it].lastActive } ?: 0,
+      )
+    withContext(Dispatchers.IO) { TabSession.write(appContext.filesDir, session) }
+  }
+
+  /**
+   * Clear browsing data: [cookies] signs out of sites in normal tabs, [cache] drops cached
+   * files. Private tabs keep their own separate profile.
+   */
+  fun clearBrowsingData(
+    cookies: Boolean,
+    cache: Boolean,
+  ) {
+    if (cookies) {
+      runCatching {
+        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().flush()
+        WebStorage.getInstance().deleteAllData()
+      }
+    }
+    if (cache) {
+      val view = _tabs.value.firstNotNullOfOrNull { it.webView }
+      if (view != null) {
+        view.clearCache(true)
+      } else {
+        runCatching { WebView(context).apply { clearCache(true) }.destroy() }
+      }
+    }
   }
 
   fun select(id: Long) {
@@ -129,6 +219,7 @@ class TabManager(
       it.lastActive = System.currentTimeMillis()
       it.webView?.onResume()
     }
+    saveSession()
   }
 
   fun close(id: Long) {
@@ -141,6 +232,7 @@ class TabManager(
       _activeId.value = (remaining.firstOrNull { it.id == tab.openerId } ?: remaining.maxByOrNull { it.lastActive })?.id
     }
     if (tab.isPrivate && remaining.none { it.isPrivate }) BrowserProfiles.clearPrivate()
+    saveSession()
   }
 
   fun closeAll(private: Boolean) {
@@ -210,6 +302,7 @@ class TabManager(
 
   fun pauseAll() {
     _tabs.value.forEach(::pause)
+    saveSession()
   }
 
   fun resumeActive() {
@@ -336,6 +429,7 @@ class TabManager(
     media: DetectedMedia,
   ) {
     pauseAll()
+    if (!tab.isPrivate) library.markPlayed(tab.pageUrl)
     _events.tryEmit(Event.Launch(buildRequest(tab, media)))
   }
 
@@ -421,6 +515,35 @@ class TabManager(
     _events.tryEmit(Event.Fullscreen(null, null))
   }
 
+  override fun onVisited(
+    tab: BrowserTab,
+    url: String,
+  ) {
+    if (!tab.isPrivate) library.recordVisit(url, "")
+  }
+
+  override fun onTitle(
+    tab: BrowserTab,
+    title: String,
+  ) {
+    if (!tab.isPrivate) library.updateTitle(tab.pageUrl, title)
+  }
+
+  override fun onPageFinished(
+    tab: BrowserTab,
+    view: WebView,
+  ) {
+    val y = tab.pendingScrollY
+    if (y > 0) {
+      tab.pendingScrollY = 0
+      view.postDelayed({ view.scrollTo(0, y) }, SCROLL_RESTORE_DELAY)
+    }
+    if (!tab.isPrivate) {
+      view.title?.let { library.updateTitle(tab.pageUrl, it) }
+      saveSession()
+    }
+  }
+
   private suspend fun fetchText(
     url: String,
     referer: String,
@@ -444,6 +567,8 @@ class TabManager(
   companion object {
     private const val TAG = "TabManager"
     private const val MAX_PLAYLIST = 2_000_000L
+    private const val SAVE_DELAY = 500L
+    private const val SCROLL_RESTORE_DELAY = 300L
   }
 }
 

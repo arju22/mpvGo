@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -109,6 +110,7 @@ data class TopBarState(
   val activeDownloads: Int,
   val adBlockOnSite: Boolean,
   val desktop: Boolean,
+  val bookmarked: Boolean = false,
 )
 
 val TopBarHeight = 56.dp
@@ -342,7 +344,11 @@ private fun OverflowMenu(
           Icon(Icons.AutoMirrored.Filled.ArrowForward, "Forward")
         }
         IconButton(enabled = state.url.isNotEmpty(), onClick = { pick(BrowserAction.BOOKMARK_PAGE) }) {
-          Icon(Icons.Filled.StarBorder, "Bookmark this page")
+          if (state.bookmarked) {
+            Icon(Icons.Filled.Star, "Edit bookmark", tint = MaterialTheme.colorScheme.primary)
+          } else {
+            Icon(Icons.Filled.StarBorder, "Bookmark this page")
+          }
         }
         IconButton(enabled = state.url.isNotEmpty(), onClick = { pick(BrowserAction.SHARE) }) { Icon(Icons.Filled.Share, "Share") }
         IconButton(onClick = { pick(BrowserAction.NEW_TAB) }) { Icon(Icons.Filled.Add, "New tab") }
