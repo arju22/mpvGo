@@ -12,4 +12,17 @@ object DownloadCounts {
   fun setActive(count: Int) {
     _active.value = count.coerceAtLeast(0)
   }
+
+  private val _openRequested = MutableStateFlow(false)
+
+  /** True when something (e.g. a download notification) asked for the Downloads tab. */
+  val openRequested: StateFlow<Boolean> = _openRequested.asStateFlow()
+
+  fun requestOpen() {
+    _openRequested.value = true
+  }
+
+  fun consumeOpenRequest() {
+    _openRequested.value = false
+  }
 }

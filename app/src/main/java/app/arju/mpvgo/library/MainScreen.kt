@@ -120,6 +120,14 @@ object MainScreen : Screen {
       persistentSelectedTab = selectedTab
     }
 
+    val openDownloads by DownloadCounts.openRequested.collectAsState()
+    LaunchedEffect(openDownloads) {
+      if (openDownloads) {
+        selectedTab = 3
+        DownloadCounts.consumeOpenRequest()
+      }
+    }
+
     // Scaffold with bottom navigation bar
     Scaffold(
       modifier = Modifier.fillMaxSize(),

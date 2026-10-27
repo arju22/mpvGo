@@ -34,12 +34,19 @@ class App : Application() {
         DatabaseModule,
         FileManagerModule,
         app.arju.mpvgo.core.di.domainModule,
+        app.arju.mpvgo.downloader.DownloaderModule,
       )
     }
 
     Thread.setDefaultUncaughtExceptionHandler(GlobalExceptionHandler(applicationContext, CrashActivity::class.java))
 
     FastThumbnails.initialize(this)
+
+    // mpvGo: resume downloads interrupted by a killed process (also feeds the Downloads badge).
+    applicationScope.launch {
+      delay(DOWNLOADS_RESTORE_DELAY_MS)
+      runCatching { org.koin.core.context.GlobalContext.get().get<app.arju.mpvgo.downloader.DownloadManager>().restore() }
+    }
 
     // mpvGo: cache maintenance stats every cached file; keep it off the startup path and run it
     // at most once a day.
@@ -59,6 +66,7 @@ class App : Application() {
 
   private companion object {
     const val MAINTENANCE_DELAY_MS = 15_000L
+    const val DOWNLOADS_RESTORE_DELAY_MS = 1_500L
     const val MAINTENANCE_INTERVAL_MS = 24 * 60 * 60 * 1000L
   }
 }

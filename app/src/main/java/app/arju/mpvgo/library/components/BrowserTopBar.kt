@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RemoveCircle
 import androidx.compose.material.icons.filled.Search
@@ -96,6 +97,7 @@ fun BrowserTopBar(
   useRemoveIcon: Boolean = false,
   onAddToPlaylistClick: (() -> Unit)? = null,
   onBrowserClick: (() -> Unit)? = null,
+  onPauseClick: (() -> Unit)? = null,
 ) {
   if (isInSelectionMode) {
     SelectionTopBar(
@@ -115,6 +117,7 @@ fun BrowserTopBar(
       modifier = modifier,
       useRemoveIcon = useRemoveIcon,
       onAddToPlaylist = onAddToPlaylistClick,
+      onPause = onPauseClick,
     )
   } else {
     NormalTopBar(
@@ -319,6 +322,7 @@ private fun SelectionTopBar(
   modifier: Modifier = Modifier,
   useRemoveIcon: Boolean = false,
   onAddToPlaylist: (() -> Unit)? = null,
+  onPause: (() -> Unit)? = null,
 ) {
   var showDropdown by remember { mutableStateOf(false) }
 
@@ -406,6 +410,21 @@ private fun SelectionTopBar(
           Icon(
             Icons.Filled.PlayArrow,
             contentDescription = "Play",
+            modifier = Modifier.size(28.dp),
+            tint = MaterialTheme.colorScheme.primary,
+          )
+        }
+      }
+
+      // mpvGo: Pause (Downloads selection)
+      if (onPause != null) {
+        IconButton(
+          onClick = onPause,
+          modifier = Modifier.padding(horizontal = 2.dp),
+        ) {
+          Icon(
+            Icons.Filled.Pause,
+            contentDescription = "Pause",
             modifier = Modifier.size(28.dp),
             tint = MaterialTheme.colorScheme.primary,
           )

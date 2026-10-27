@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ViewQuilt
@@ -134,6 +135,24 @@ object PreferencesScreen : Screen {
                   )
                 },
                 onClick = { backstack.add(app.arju.mpvgo.library.networkstreaming.NetworkStreamingScreen) },
+              )
+              PreferenceDivider()
+              Preference(
+                title = { Text(text = "Downloads") },
+                summary = {
+                  Text(
+                    text = "Folder, speed, connections, Wi-Fi only",
+                    color = MaterialTheme.colorScheme.outline,
+                  )
+                },
+                icon = {
+                  Icon(
+                    Icons.Filled.Download,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                  )
+                },
+                onClick = { backstack.add(app.arju.mpvgo.downloader.ui.DownloadPreferencesScreen) },
               )
             }
           }

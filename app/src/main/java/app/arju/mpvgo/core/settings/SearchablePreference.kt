@@ -31,6 +31,23 @@ object SearchablePreferences {
                 category = "Browser, Downloads & Network",
                 screen = app.arju.mpvgo.library.networkstreaming.NetworkStreamingScreen,
             ))
+            listOf(
+                Triple("Downloads", "Folder, speed, connections, Wi-Fi only", listOf("download", "folder", "queue")),
+                Triple("Download folder", "Where finished downloads are saved", listOf("download", "folder", "location", "storage")),
+                Triple("Connections per file", "Parallel connections for faster downloads", listOf("download", "connections", "threads", "speed")),
+                Triple("Speed limit", "Cap the total download speed", listOf("download", "speed", "limit", "bandwidth")),
+                Triple("Wi-Fi only", "New downloads wait for an unmetered network", listOf("download", "wifi", "mobile data", "metered")),
+                Triple("Save HLS streams as MP4", "Convert m3u8 downloads to MP4", listOf("download", "hls", "m3u8", "mp4", "ts")),
+                Triple("Unrestricted background downloads", "Battery optimisation exemption", listOf("download", "battery", "background")),
+            ).forEach { (title, summary, keywords) ->
+                add(SearchablePreference(
+                    title = title,
+                    summary = summary,
+                    keywords = keywords,
+                    category = "Browser, Downloads & Network",
+                    screen = app.arju.mpvgo.downloader.ui.DownloadPreferencesScreen,
+                ))
+            }
             // Appearance preferences
             add(SearchablePreference(
                 titleRes = R.string.pref_appearance_title,

@@ -12,8 +12,18 @@ This file is updated with every batch of changes and before every release push.
 ### Added
 - Go Browser entry points: a ringed globe in the top bar of every main tab and a globe button
   at the bottom left of Home and Downloads. The browser itself is still a placeholder.
-- Downloads tab (replaces the Network tab), with a badge for active downloads. The list arrives
-  with the downloader.
+- Downloads tab (replaces the Network tab), with a badge for active downloads.
+- Downloader: multi-connection HTTP downloads and HLS downloads (AES-128 decrypted, remuxed to
+  MP4 with a .ts fallback). Downloads run in a background service, resume after the app is
+  closed and retry failed connections up to 10 times. Finished videos appear in the library
+  right away.
+- Downloads list with filters, search, a selection mode, pause/resume, details and a menu for
+  finished videos (play, open with, share, show in folder, copy link, download again, delete).
+- New download sheet (the "+" button, and a Download button in Open Link) with smart naming,
+  folder, connection count and Wi-Fi only options.
+- Play while downloading: the video streams from the partial file while it downloads.
+- Download notifications for progress and finished videos, with Play and Share actions.
+- Download settings (folder, limits, connections, Wi-Fi only, battery optimization prompt).
 
 ### Changed
 - Network streaming moved out of the bottom bar. Open it from the Play button menu (new

@@ -10,6 +10,7 @@ koin = "4.2.0"
 lazycolumnscrollbar = "2.2.0"
 nanohttpd = "2.3.1"
 room = "2.8.4"
+work = "2.11.0"
 navigation3 = "1.0.1"
 kotlinx-serialization = "1.10.0"
 accompanist = "0.37.3"
@@ -58,6 +59,7 @@ compose-prefs = { module = "me.zhanghai.compose.preference:preference", version 
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 
 
 kotlinx-immutable-collections = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version = "0.4.0" }

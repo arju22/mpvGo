@@ -20,6 +20,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -146,6 +147,20 @@ fun PlayLinkSheet(
         TextButton(onClick = handleDismiss) {
           Text(
             text = "Cancel",
+            fontWeight = FontWeight.Medium,
+          )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        OutlinedButton(
+          onClick = {
+            val url = linkInputUrl.trim()
+            app.arju.mpvgo.downloader.ui.DownloadRequests.request(app.arju.mpvgo.downloader.ui.DownloadDraft(url = url))
+            onDismiss()
+          },
+          enabled = linkInputUrl.isNotBlank() && isLinkInputUrlValid && linkInputUrl.trim().startsWith("http", ignoreCase = true),
+        ) {
+          Text(
+            text = "Download",
             fontWeight = FontWeight.Medium,
           )
         }

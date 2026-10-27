@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     
     PermissionUtils.setMediaAccessLauncher(mediaAccessLauncher)
+    handleDownloadsIntent(intent)
 
     // Register proxy lifecycle observer for network streaming
     lifecycle.addObserver(app.arju.mpvgo.library.networkstreaming.proxy.ProxyLifecycleObserver())
@@ -97,6 +98,18 @@ class MainActivity : ComponentActivity() {
           Navigator()
         }
       }
+    }
+  }
+
+  override fun onNewIntent(intent: android.content.Intent) {
+    super.onNewIntent(intent)
+    handleDownloadsIntent(intent)
+  }
+
+  private fun handleDownloadsIntent(intent: android.content.Intent?) {
+    if (intent?.getBooleanExtra(app.arju.mpvgo.downloader.DownloadNotifications.EXTRA_OPEN_DOWNLOADS, false) == true) {
+      intent.removeExtra(app.arju.mpvgo.downloader.DownloadNotifications.EXTRA_OPEN_DOWNLOADS)
+      app.arju.mpvgo.downloader.DownloadCounts.requestOpen()
     }
   }
 
@@ -167,6 +180,10 @@ class MainActivity : ComponentActivity() {
     val downloadProgress by (updateViewModel?.downloadProgress ?: MutableStateFlow(0f)).collectAsState()
 
     // Provide both LocalBackStack and the LazyList/Grid states to all screens
+    val openDownloads by app.arju.mpvgo.downloader.DownloadCounts.openRequested.collectAsState()
+    LaunchedEffect(openDownloads) {
+      if (openDownloads) while (typedBackstack.size > 1) typedBackstack.removeLastOrNull()
+    }
     CompositionLocalProvider(
       LocalBackStack provides typedBackstack
     ) {
@@ -210,6 +227,8 @@ class MainActivity : ComponentActivity() {
           )
         },
       )
+
+      app.arju.mpvgo.downloader.ui.DownloadRequestHost()
 
       // Display Update Dialog when appropriate (only if update feature is enabled)
       if (BuildConfig.ENABLE_UPDATE_FEATURE && updateViewModel != null) {
