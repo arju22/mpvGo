@@ -55,6 +55,12 @@ class BrowserTab internal constructor(
 
   @Volatile internal var userAgent: String = ""
 
+  /** The WebView's own (mobile) user agent, before any desktop-site change. */
+  internal var mobileUserAgent: String = ""
+
+  internal val _desktop = MutableStateFlow(false)
+  val desktop: StateFlow<Boolean> = _desktop.asStateFlow()
+
   internal var webView: WebView? = null
   internal var savedState: Bundle? = null
   internal var lastActive: Long = System.currentTimeMillis()

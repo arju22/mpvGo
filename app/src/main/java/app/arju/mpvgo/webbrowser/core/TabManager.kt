@@ -114,6 +114,7 @@ class TabManager(
   ): BrowserTab {
     val tab = BrowserTab(nextId++, private, url, scope, ::fetchText)
     tab.openerId = openerId
+    tab._desktop.value = prefs.desktopSite.get()
     _tabs.value = _tabs.value + tab
     if (select) select(tab.id)
     if (!url.isNullOrBlank()) load(tab, url)
@@ -163,10 +164,48 @@ class TabManager(
     tab: BrowserTab,
     input: String,
   ) {
-    val url = UrlInput.toUrl(input)
+    val url = UrlInput.toUrl(input, prefs.searchTemplate())
     tab.pageUrl = url
     tab._url.value = url
     webViewFor(tab).loadUrl(url)
+  }
+
+  /** Shows the start page in [tab]; the page history stays, so Back returns to it. */
+  fun goHome(tab: BrowserTab) {
+    tab.webView?.let {
+      it.stopLoading()
+      pause(tab)
+    }
+    tab.sniffer.reset()
+    tab._loading.value = false
+    tab._title.value = ""
+    tab._url.value = ""
+    tab.pageUrl = ""
+  }
+
+  fun setDesktop(
+    tab: BrowserTab,
+    on: Boolean,
+  ) {
+    tab._desktop.value = on
+    val view = tab.webView ?: return
+    val mobile = tab.mobileUserAgent.ifBlank { view.settings.userAgentString }
+    view.settings.userAgentString = if (on) DesktopMode.userAgent(mobile) else mobile
+    tab.userAgent = view.settings.userAgentString
+    if (!tab.isStartPage) view.reload()
+  }
+
+  /** Tabs of the same kind (normal or private) as [tab], in opening order. */
+  fun siblings(tab: BrowserTab): List<BrowserTab> = _tabs.value.filter { it.isPrivate == tab.isPrivate }
+
+  /** Selects the next (+1) or previous (-1) tab of the same kind; no wrap-around. */
+  fun step(
+    tab: BrowserTab,
+    direction: Int,
+  ) {
+    val list = siblings(tab)
+    val i = list.indexOfFirst { it.id == tab.id }
+    list.getOrNull(i + direction)?.let { select(it.id) }
   }
 
   fun pauseAll() {

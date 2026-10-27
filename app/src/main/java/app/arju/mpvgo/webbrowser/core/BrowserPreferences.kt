@@ -16,6 +16,25 @@ class BrowserPreferences(store: PreferenceStore) {
   val javascript = store.getBoolean("browser_javascript", true)
   val userAgent = store.getString("browser_user_agent", "")
   val desktopSite = store.getBoolean("browser_desktop_site", false)
+  val searchEngine = store.getString("browser_search_engine", SearchEngine.GOOGLE.name)
+  val customSearchUrl = store.getString("browser_custom_search_url", "")
+
+  /** Speed dials encoded by [SpeedDials.encode]; blank means the defaults. */
+  val speedDials = store.getString("browser_speed_dials", "")
+
+  /** Up to two top-bar shortcut buttons, comma-separated [TopBarButton] names. */
+  val topBarButtons = store.getString("browser_top_bar_buttons", "${TopBarButton.BOOKMARKS.name},${TopBarButton.DOWNLOADS.name}")
+  val pullToRefresh = store.getBoolean("browser_pull_to_refresh", true)
+
+  fun engine(): SearchEngine = runCatching { SearchEngine.valueOf(searchEngine.get()) }.getOrDefault(SearchEngine.GOOGLE)
+
+  fun searchTemplate(): String = engine().template(customSearchUrl.get())
+
+  fun dials(): List<SpeedDial> = SpeedDials.decode(speedDials.get())
+
+  fun saveDials(list: List<SpeedDial>) = speedDials.set(SpeedDials.encode(list))
+
+  fun topButtons(): List<TopBarButton> = TopBarButton.parse(topBarButtons.get())
 
   fun mode(): VideoTapMode = runCatching { VideoTapMode.valueOf(videoTapMode.get()) }.getOrDefault(VideoTapMode.ASK_ONCE_PER_SITE)
 

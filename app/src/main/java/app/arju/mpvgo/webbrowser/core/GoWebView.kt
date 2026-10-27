@@ -127,6 +127,8 @@ internal class GoWebViewFactory(
       prefs.userAgent.get().takeIf { it.isNotBlank() }?.let { userAgentString = it }
       if (tab.isPrivate) cacheMode = WebSettings.LOAD_NO_CACHE
     }
+    tab.mobileUserAgent = webView.settings.userAgentString
+    if (tab.desktop.value) webView.settings.userAgentString = DesktopMode.userAgent(tab.mobileUserAgent)
     tab.userAgent = webView.settings.userAgentString
     if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
       WebViewCompat.addWebMessageListener(webView, BRIDGE, setOf("*")) { view, message, _, isMainFrame, reply ->

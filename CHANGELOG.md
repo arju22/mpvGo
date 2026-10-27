@@ -33,7 +33,13 @@ This file is updated with every batch of changes and before every release push.
   tracker blocking with element hiding, and video detection. A "videos found" chip lists the
   videos on the page; when a page starts a video, mpvGo asks whether to play it in mpvGo or the
   web player (with "Remember for this site"). Videos open in mpvGo with the page's cookies,
-  referrer and user agent, so protected streams keep working. The browser UI is still basic.
+  referrer and user agent, so protected streams keep working.
+- Go browser interface: a start page with a search box (Google, DuckDuckGo, Brave, Bing,
+  Startpage or a custom engine) and editable speed dials; a top bar with the tab count, address
+  box (swipe it to switch tabs), Bookmarks and Downloads buttons and a menu; a tabs drawer with
+  normal and private tabs; find in page; desktop site per tab; pull to refresh; a per-site
+  settings sheet (ad block, pop-ups, what happens when you tap a video); and a floating media
+  button with the number of videos found. Bookmarks, history and browser settings come next.
 
 ### Changed
 - Network streaming moved out of the bottom bar. Open it from the Play button menu (new
