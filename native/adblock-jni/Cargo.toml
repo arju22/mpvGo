@@ -1,0 +1,21 @@
+[package]
+name = "adblock-jni"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MPL-2.0"
+
+[lib]
+name = "adblock_jni"
+crate-type = ["cdylib"]
+
+[dependencies]
+adblock = { version = "0.13.3", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
+jni = { version = "0.21", default-features = false }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "unwind"
+strip = true

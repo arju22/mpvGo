@@ -24,6 +24,9 @@ This file is updated with every batch of changes and before every release push.
 - Play while downloading: the video streams from the partial file while it downloads.
 - Download notifications for progress and finished videos, with Play and Share actions.
 - Download settings (folder, limits, connections, Wi-Fi only, battery optimization prompt).
+- Ad blocking engine for the Go browser (Brave adblock-rust). Filter lists (EasyList,
+  EasyPrivacy, uBlock filters, cookie notices) are downloaded when the browser first opens and
+  updated weekly; nothing loads until you open the browser. Adds about 1 MB to the APK.
 
 ### Changed
 - Network streaming moved out of the bottom bar. Open it from the Play button menu (new

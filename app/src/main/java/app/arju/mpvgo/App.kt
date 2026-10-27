@@ -35,6 +35,7 @@ class App : Application() {
         FileManagerModule,
         app.arju.mpvgo.core.di.domainModule,
         app.arju.mpvgo.downloader.DownloaderModule,
+        app.arju.mpvgo.webbrowser.WebBrowserModule,
       )
     }
 
