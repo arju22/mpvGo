@@ -9,9 +9,14 @@ This file is updated with every batch of changes and before every release push.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-28
+
+This release adds the Go browser: a built-in web browser with ad blocking, video detection
+that plays web videos in mpvGo, and a download manager.
+
 ### Added
 - Go Browser entry points: a ringed globe in the top bar of every main tab and a globe button
-  at the bottom left of Home and Downloads. The browser itself is still a placeholder.
+  at the bottom left of Home and Downloads.
 - Downloads tab (replaces the Network tab), with a badge for active downloads.
 - Swipe left or right to switch between the main tabs (Home, Recents, Playlists, Downloads).
   Swiping is off while selecting, searching or with the Play menu open.
