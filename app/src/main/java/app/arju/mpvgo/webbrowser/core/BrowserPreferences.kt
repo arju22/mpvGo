@@ -4,6 +4,11 @@ import app.arju.mpvgo.core.preferences.preference.PreferenceStore
 
 enum class VideoTapMode { ASK_ONCE_PER_SITE, ALWAYS_ASK, ALWAYS_MPVGO, ALWAYS_WEB }
 
+enum class BrowserVideoPlayerMode(val label: String) {
+  SMALL_WINDOW("Small window"),
+  FULL_SCREEN("Full screen"),
+}
+
 enum class SiteChoice { MPVGO, WEB }
 
 /** What "Clear data when I exit" can remove. */
@@ -22,6 +27,7 @@ class BrowserPreferences(store: PreferenceStore) {
   val floatingMediaButton = store.getBoolean("browser_media_button", true)
   val addWebVideosToRecents = store.getBoolean("browser_web_videos_in_recents", true)
   val stopAutoplay = store.getBoolean("browser_stop_autoplay", true)
+  val openVideosIn = store.getString("browser_open_videos_in", BrowserVideoPlayerMode.SMALL_WINDOW.name)
   val javascript = store.getBoolean("browser_javascript", true)
   val userAgent = store.getString("browser_user_agent", "")
   val desktopSite = store.getBoolean("browser_desktop_site", false)
@@ -68,7 +74,7 @@ class BrowserPreferences(store: PreferenceStore) {
   val resettable
     get() =
       listOf(
-        videoTapMode, floatingMediaButton, addWebVideosToRecents, stopAutoplay, javascript, userAgent, desktopSite,
+        videoTapMode, floatingMediaButton, addWebVideosToRecents, stopAutoplay, openVideosIn, javascript, userAgent, desktopSite,
         searchEngine, customSearchUrl, topBarButtons, pullToRefresh, rememberTabs, historyDays,
         siteTiles, textZoom, darkWebsites, showTabCount, swipeAddressBar, swipeTabsPanel,
         searchSuggestions, suggestCopiedLink, blockThirdPartyCookies, httpsUpgrade, safeBrowsing,
@@ -88,6 +94,9 @@ class BrowserPreferences(store: PreferenceStore) {
   fun topButtons(): List<TopBarButton> = TopBarButton.parse(topBarButtons.get())
 
   fun mode(): VideoTapMode = runCatching { VideoTapMode.valueOf(videoTapMode.get()) }.getOrDefault(VideoTapMode.ASK_ONCE_PER_SITE)
+
+  fun playerMode(): BrowserVideoPlayerMode =
+    runCatching { BrowserVideoPlayerMode.valueOf(openVideosIn.get()) }.getOrDefault(BrowserVideoPlayerMode.SMALL_WINDOW)
 
   fun siteChoice(host: String): SiteChoice? = PlayTakeover.choiceFor(host, siteChoices.get())
 

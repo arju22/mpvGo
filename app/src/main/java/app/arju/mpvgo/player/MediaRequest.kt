@@ -22,6 +22,8 @@ data class MediaRequest(
   val isPrivate: Boolean = false,
   /** "Add web videos to Recents" is off. */
   val skipRecents: Boolean = false,
+  /** Open in Android Picture-in-Picture mode when launched from the browser. */
+  val startInPip: Boolean = false,
 ) {
   fun toIntent(context: Context): Intent =
     Intent(Intent.ACTION_VIEW, Uri.parse(url), context, PlayerActivity::class.java).apply {
@@ -35,6 +37,7 @@ data class MediaRequest(
     pageUrl?.let { putString(EXTRA_PAGE_URL, it) }
     if (isPrivate) putBoolean(EXTRA_PRIVATE, true)
     if (skipRecents) putBoolean(EXTRA_NO_RECENTS, true)
+    if (startInPip) putBoolean(EXTRA_START_IN_PIP, true)
   }
 
   companion object {
@@ -43,6 +46,7 @@ data class MediaRequest(
     const val EXTRA_PAGE_URL = "app.arju.mpvgo.extra.PAGE_URL"
     const val EXTRA_PRIVATE = "app.arju.mpvgo.extra.PRIVATE"
     const val EXTRA_NO_RECENTS = "app.arju.mpvgo.extra.NO_RECENTS"
+    const val EXTRA_START_IN_PIP = "app.arju.mpvgo.extra.START_IN_PIP"
   }
 }
 

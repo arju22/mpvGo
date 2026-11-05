@@ -10,6 +10,7 @@ This file is updated with every batch of changes and before every release push.
 ## [Unreleased]
 
 ### Added
+- Browser/Player: browser web videos open in a small Android Picture-in-Picture floating window over the browser by default, with an option to choose "Small window" or "Full screen" in Settings › Browser › Videos (#11).
 - Browser: compact tab count switch and live device RAM indicator (used / total and free GB) in the tabs drawer header (#18).
 - Browser: brief tab position flash (e.g. "3/5") on the top bar tabs button when switching tabs (#4).
 - Browser: address bar tab switching now supports fling gestures, provides light haptic feedback, and bounces when reaching the first or last tab (#2).
@@ -22,6 +23,9 @@ This file is updated with every batch of changes and before every release push.
 - Browser: opening the tabs panel by swiping from the left edge is now off by default to avoid accidental triggers with system back navigation and web sliders. It can still be turned on in Settings › Browser › Gestures.
 
 ### Fixed
+- Player: fixed PiP window disappearing when leaving the app by setting autoRemoveFromRecents to false (#681).
+- Player: fixed video continuing to play after closing PiP with the close button (#762).
+- Player: added PiP capability and permission checks before entering PiP mode to avoid UI hangs on unsupported devices (#736).
 - Browser: autoplaying and background page videos no longer force-open mpvGo or show takeover dialogs; only user-initiated playback triggers takeover (#10).
 - Browser: muted, looping, and preview videos under 200px without controls are ignored for player takeover (#10).
 - Browser: swiping the address bar to switch tabs now tracks the current tab dynamically and switches reliably on every swipe.

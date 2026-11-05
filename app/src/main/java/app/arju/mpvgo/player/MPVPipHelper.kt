@@ -1,5 +1,6 @@
 package app.arju.mpvgo.player
 
+import android.app.AppOpsManager
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
@@ -7,6 +8,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.graphics.drawable.Icon
 import android.os.Build
@@ -79,8 +81,32 @@ class MPVPipHelper(
     }
   }
 
+  fun isPipSupported(): Boolean =
+    activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+
+  fun isPipAllowed(): Boolean {
+    if (!isPipSupported()) return false
+    val appOps = activity.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      appOps.unsafeCheckOpNoThrow(
+        AppOpsManager.OPSTR_PICTURE_IN_PICTURE,
+        android.os.Process.myUid(),
+        activity.packageName,
+      ) == AppOpsManager.MODE_ALLOWED
+    } else {
+      @Suppress("DEPRECATION")
+      appOps.checkOpNoThrow(
+        AppOpsManager.OPSTR_PICTURE_IN_PICTURE,
+        android.os.Process.myUid(),
+        activity.packageName,
+      ) == AppOpsManager.MODE_ALLOWED
+    }
+  }
+
+  fun isPipSupportedAndAllowed(): Boolean = isPipAllowed()
+
   fun updatePictureInPictureParams() {
-    if (activity.isFinishing || activity.isDestroyed) return
+    if (activity.isFinishing || activity.isDestroyed || !isPipSupportedAndAllowed()) return
 
     val params = buildPipParams()
     runCatching { activity.setPictureInPictureParams(params) }
@@ -90,9 +116,11 @@ class MPVPipHelper(
     PictureInPictureParams
       .Builder()
       .apply {
-        getVideoAspectRatio()?.let { aspectRatio ->
-          setAspectRatio(aspectRatio)
-          setSourceRectHint(calculateSourceRect(aspectRatio))
+        val aspectRatio = getVideoAspectRatio()
+        setAspectRatio(aspectRatio)
+        val sourceRect = calculateSourceRect(aspectRatio)
+        if (!sourceRect.isEmpty) {
+          setSourceRectHint(sourceRect)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -102,18 +130,24 @@ class MPVPipHelper(
         setActions(createPipActions())
       }.build()
 
-  private fun getVideoAspectRatio(): Rational? {
+  private fun getVideoAspectRatio(): Rational {
     val width = MPVLib.getPropertyInt("video-out-params/dw") ?: 0
     val height = MPVLib.getPropertyInt("video-out-params/dh") ?: 0
 
-    if (width == 0 || height == 0) return null
-
-    return Rational(width, height).takeIf { it.toFloat() in 0.5f..2.39f }
+    if (width > 0 && height > 0) {
+      val ratio = Rational(width, height)
+      if (ratio.toFloat() in 0.5f..2.39f) {
+        return ratio
+      }
+    }
+    return Rational(16, 9)
   }
 
   private fun calculateSourceRect(aspectRatio: Rational): Rect {
     val viewWidth = mpvView.width.toFloat()
     val viewHeight = mpvView.height.toFloat()
+    if (viewWidth <= 0 || viewHeight <= 0) return Rect()
+
     val videoAspect = aspectRatio.toFloat()
     val viewAspect = viewWidth / viewHeight
 
@@ -171,12 +205,13 @@ class MPVPipHelper(
     )
   }
 
-  fun enterPipMode() {
-    runCatching {
+  fun enterPipMode(): Boolean {
+    if (!isPipSupportedAndAllowed()) return false
+    return runCatching {
       activity.enterPictureInPictureMode(buildPipParams())
     }.onFailure {
       Log.e("MPVPipHelper", "Failed to enter PiP mode", it)
-    }
+    }.getOrDefault(false)
   }
 
   fun onStop() {

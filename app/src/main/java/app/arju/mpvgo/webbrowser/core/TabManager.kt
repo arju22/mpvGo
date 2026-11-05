@@ -532,6 +532,7 @@ class TabManager(
     media: DetectedMedia,
   ): MediaRequest {
     val frame = media.frameUrl.ifBlank { tab.pageUrl }
+    val startInPip = prefs.playerMode() == BrowserVideoPlayerMode.SMALL_WINDOW
     return MediaRequest(
       url = media.url,
       title = media.pageTitle.ifBlank { tab._title.value }.takeIf { it.isNotBlank() },
@@ -542,6 +543,7 @@ class TabManager(
       pageUrl = tab.pageUrl,
       isPrivate = tab.isPrivate,
       skipRecents = !tab.isPrivate && !prefs.addWebVideosToRecents.get(),
+      startInPip = startInPip,
     )
   }
 

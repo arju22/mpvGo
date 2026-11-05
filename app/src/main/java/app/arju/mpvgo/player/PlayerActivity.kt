@@ -23,6 +23,7 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -225,6 +226,8 @@ class PlayerActivity :
   private var isReady = false // Single flag: true when video loaded and ready
   private var isUserFinishing = false
   private var isManualBackgroundPlayback = false // Track manual background playback trigger
+  private var startInPipRequest = false // Launch requested starting directly in PiP mode
+  private var isLaunchedFromBrowser = false // Track if launched from web browser
   private var noisyReceiverRegistered = false
   private var mpvInitialized = false // Track MPV initialization state
   private var savePlaybackStateJob: kotlinx.coroutines.Job? = null // Track ongoing save job
@@ -408,6 +411,8 @@ class PlayerActivity :
     mediaIdentifier = getMediaIdentifier(intent, fileName)
     isPrivateRequest = intent.getBooleanExtra(MediaRequest.EXTRA_PRIVATE, false)
     skipRecentsRequest = intent.getBooleanExtra(MediaRequest.EXTRA_NO_RECENTS, false)
+    startInPipRequest = intent.getBooleanExtra(MediaRequest.EXTRA_START_IN_PIP, false)
+    isLaunchedFromBrowser = startInPipRequest || intent.getStringExtra(MediaRequest.EXTRA_PAGE_URL) != null
 
     // Set HTTP headers (including referer) BEFORE playing the file
     setHttpHeadersFromExtras(intent.extras)
@@ -485,6 +490,13 @@ class PlayerActivity :
       return
     }
 
+    // If launched from browser, Back always finishes to return to the browser
+    if (isLaunchedFromBrowser) {
+      isUserFinishing = true
+      finish()
+      return
+    }
+
     // Check if auto PIP is enabled - enter PIP mode instead of finishing
     if (playerPreferences.autoPiPOnNavigation.get() && isReady) {
       pipHelper.enterPipMode()
@@ -516,6 +528,28 @@ class PlayerActivity :
    */
   private fun setupPipHelper() {
     pipHelper = MPVPipHelper(activity = this, mpvView = player)
+  }
+
+  private fun maybeEnterInitialPip() {
+    if (!startInPipRequest || isFinishing || isUserFinishing) return
+    startInPipRequest = false
+    if (pipHelper.isPipSupportedAndAllowed()) {
+      binding.controls.alpha = 0f
+      pipHelper.enterPipMode()
+    } else {
+      showPipDisabledHint()
+    }
+  }
+
+  private fun showPipDisabledHint() {
+    if (!hasShownPipDisabledHint) {
+      hasShownPipDisabledHint = true
+      Toast.makeText(
+        this,
+        "Picture-in-Picture is disabled in system settings. Playing full screen.",
+        Toast.LENGTH_LONG,
+      ).show()
+    }
   }
 
   private fun setupAudio() {
@@ -623,20 +657,18 @@ class PlayerActivity :
     runCatching {
       MPVLib.removeObserver(playerObserver)
 
-      if (isReady) {
-        // Pause playback first to reduce thread activity
-        MPVLib.setPropertyBoolean("pause", true)
+      // Pause playback first to reduce thread activity
+      MPVLib.setPropertyBoolean("pause", true)
 
-        // Send quit command to gracefully shut down MPV
-        MPVLib.command("quit")
+      // Send quit command to gracefully shut down MPV
+      MPVLib.command("quit")
 
-        // Wait briefly for MPV to process quit and clean up internal threads
-        // This prevents race conditions where hardware UI threads try to access
-        // mutexes/queues that are destroyed by MPVLib.destroy()
-        // We use a short blocking wait here as onDestroy is already on the main thread
-        // and this ensures proper cleanup before activity destruction
-        Thread.sleep(100)
-      }
+      // Wait briefly for MPV to process quit and clean up internal threads
+      // This prevents race conditions where hardware UI threads try to access
+      // mutexes/queues that are destroyed by MPVLib.destroy()
+      // We use a short blocking wait here as onDestroy is already on the main thread
+      // and this ensures proper cleanup before activity destruction
+      Thread.sleep(100)
 
       // Now safe to destroy MPV as internal threads have had time to shut down
       MPVLib.destroy()
@@ -755,11 +787,12 @@ class PlayerActivity :
 
       // Handle background playback based on preferences
       val shouldAllowBackgroundPlayback = isManualBackgroundPlayback || 
-                                          audioPreferences.automaticBackgroundPlayback.get()
+                                          (audioPreferences.automaticBackgroundPlayback.get() && !isFinishing && !isUserFinishing)
       
-      // Pause playback if background playback is not enabled and user is finishing
-      if (!shouldAllowBackgroundPlayback && (isUserFinishing || isFinishing)) {
+      // Pause playback if background playback is not enabled or user is finishing
+      if (!shouldAllowBackgroundPlayback || isUserFinishing || isFinishing) {
         viewModel.pause()
+        MPVLib.setPropertyBoolean("pause", true)
       }
     }.onFailure { e ->
       Log.e(TAG, "Error during onStop", e)
@@ -1557,6 +1590,9 @@ class PlayerActivity :
         val aspect = player.getVideoOutAspect()
         Log.d(TAG, "video-params/aspect changed: $aspect")
         pipHelper.updatePictureInPictureParams()
+        if (isReady) {
+          maybeEnterInitialPip()
+        }
         // Update orientation when video aspect ratio changes (fixes Video orientation mode)
         // BUT: Don't update if aspect is being overridden (stretch/custom aspect mode)
         // to prevent infinite orientation switching loop
@@ -1616,6 +1652,7 @@ class PlayerActivity :
           isReady = true
         }
         updateRecentlyPlayedDurationIfAvailable()
+        maybeEnterInitialPip()
       }
     }
   }
@@ -1677,6 +1714,7 @@ class PlayerActivity :
           // Apply standard aspect mode (Fit, Crop, or Stretch)
           viewModel.changeVideoAspect(savedAspect, showUpdate = false)
         }
+        maybeEnterInitialPip()
       }
     }
 
@@ -2335,6 +2373,11 @@ class PlayerActivity :
     loadedMediaIdentifier = ""
     isPrivateRequest = intent.getBooleanExtra(MediaRequest.EXTRA_PRIVATE, false)
     skipRecentsRequest = intent.getBooleanExtra(MediaRequest.EXTRA_NO_RECENTS, false)
+    val newStartInPip = intent.getBooleanExtra(MediaRequest.EXTRA_START_IN_PIP, false)
+    if (newStartInPip) {
+      startInPipRequest = true
+      isLaunchedFromBrowser = true
+    }
 
     // Extract the new fileName before loading the file
     fileName = getFileName(intent)
@@ -2380,6 +2423,12 @@ class PlayerActivity :
         enterPipUIMode()
       } else {
         exitPipUIMode()
+        if (isFinishing) {
+          isUserFinishing = true
+          viewModel.pause()
+          MPVLib.setPropertyBoolean("pause", true)
+          endBackgroundPlayback()
+        }
       }
     }.onFailure { e ->
       Log.e(TAG, "Error handling PiP mode change", e)
@@ -2417,6 +2466,11 @@ class PlayerActivity :
    * Enters Picture-in-Picture mode and hides all overlay controls.
    */
   fun enterPipModeHidingOverlay() {
+    if (!pipHelper.isPipSupportedAndAllowed()) {
+      Toast.makeText(this, "Picture-in-Picture is disabled or not supported", Toast.LENGTH_SHORT).show()
+      return
+    }
+
     runCatching {
       enterPipUIMode()
     }.onFailure { e ->
@@ -2425,7 +2479,12 @@ class PlayerActivity :
 
     binding.controls.alpha = 0f
 
-    pipHelper.enterPipMode()
+    val entered = pipHelper.enterPipMode()
+    if (!entered) {
+      binding.controls.alpha = 1f
+      exitPipUIMode()
+      Toast.makeText(this, "Could not enter Picture-in-Picture mode", Toast.LENGTH_SHORT).show()
+    }
   }
 
   // ==================== Orientation Management ====================
@@ -3584,6 +3643,8 @@ class PlayerActivity :
      * Intent action used to return playback result data to the calling activity.
      */
     private const val RESULT_INTENT = "app.arju.mpvgo.player.PlayerActivity.result"
+
+    private var hasShownPipDisabledHint = false
 
     /**
      * Constant for "brightness not set".

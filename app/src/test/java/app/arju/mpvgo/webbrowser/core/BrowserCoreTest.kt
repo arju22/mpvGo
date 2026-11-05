@@ -197,4 +197,19 @@ class BrowserCoreTest {
       BrowserBackAction.decide(drawerOpen = false, libraryOpen = false, mediaOpen = false, siteOpen = false, findOpen = false, fullscreenOpen = false, canGoBack = false, hasValidOpener = false),
     )
   }
+
+  @Test
+  fun `media request carries startInPip flag`() {
+    val reqPip = app.arju.mpvgo.player.MediaRequest(
+      url = "https://example.com/video.mp4",
+      startInPip = true,
+    )
+    assertTrue(reqPip.startInPip)
+
+    val reqFull = app.arju.mpvgo.player.MediaRequest(
+      url = "https://example.com/video.mp4",
+      startInPip = false,
+    )
+    assertFalse(reqFull.startInPip)
+  }
 }

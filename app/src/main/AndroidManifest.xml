@@ -74,7 +74,7 @@
 
         <activity
             android:name=".player.PlayerActivity"
-            android:autoRemoveFromRecents="true"
+            android:autoRemoveFromRecents="false"
             android:noHistory="false"
             android:excludeFromRecents="false"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize"

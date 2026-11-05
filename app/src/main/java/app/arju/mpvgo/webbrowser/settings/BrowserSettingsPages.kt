@@ -23,6 +23,7 @@ import app.arju.mpvgo.webbrowser.BrowserLinks
 import app.arju.mpvgo.webbrowser.adblock.AdBlockPreferences
 import app.arju.mpvgo.webbrowser.adblock.AdBlocker
 import app.arju.mpvgo.webbrowser.core.BrowserPreferences
+import app.arju.mpvgo.webbrowser.core.BrowserVideoPlayerMode
 import app.arju.mpvgo.webbrowser.core.ExitClear
 import app.arju.mpvgo.webbrowser.core.SearchEngine
 import app.arju.mpvgo.webbrowser.core.TabManager
@@ -185,6 +186,8 @@ internal fun VideoPage() {
   val mode by prefs.videoTapMode.collectAsState()
   val choices by prefs.siteChoices.collectAsState()
   val current = runCatching { VideoTapMode.valueOf(mode) }.getOrDefault(VideoTapMode.ASK_ONCE_PER_SITE)
+  val openVideosInStr by prefs.openVideosIn.collectAsState()
+  val playerMode = runCatching { BrowserVideoPlayerMode.valueOf(openVideosInStr) }.getOrDefault(BrowserVideoPlayerMode.SMALL_WINDOW)
   BrowserSettingsScaffold("Video playback") {
     section(null) {
       ListPreference(
@@ -193,6 +196,15 @@ internal fun VideoPage() {
         values = VideoTapMode.entries,
         title = { Text("When I tap a video") },
         summary = { Summary(current.label) },
+        valueToText = { AnnotatedString(it.label) },
+      )
+      PreferenceDivider()
+      ListPreference(
+        value = playerMode,
+        onValueChange = { prefs.openVideosIn.set(it.name) },
+        values = BrowserVideoPlayerMode.entries,
+        title = { Text("Open browser videos in") },
+        summary = { Summary(playerMode.label) },
         valueToText = { AnnotatedString(it.label) },
       )
       PreferenceDivider()
