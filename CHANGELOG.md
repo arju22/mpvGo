@@ -11,8 +11,11 @@ This file is updated with every batch of changes and before every release push.
 
 ### Added
 - Browser/Player: browser web videos open in a small Android Picture-in-Picture floating window over the browser by default, with an option to choose "Small window" or "Full screen" in Settings › Browser › Videos (#11).
-- Browser: compact tab count switch and live device RAM indicator (used / total and free GB) in the tabs drawer header (#18).
+- Browser: compact tab count switch and live device RAM indicator (used / total GB) in the tabs drawer header (#18).
 - Browser: brief tab position flash (e.g. "3/5") on the top bar tabs button when switching tabs (#4).
+- Browser: live network speed pill in the top bar showing real-time device download/upload rates with independent unit scaling (B/s to GB/s) and private styling (#19).
+- Browser: smart video naming that cleans branding suffixes and disambiguates multiple streams (#7, #22).
+- Browser: found-videos sheet now displays resolution · size · type with bold resolution, estimated HLS sizes, and monochrome mpvGo play button (#22).
 - Browser: address bar tab switching now supports fling gestures, provides light haptic feedback, and bounces when reaching the first or last tab (#2).
 - Browser: tapping the Private box in the tabs drawer when there are no private tabs directly creates a new private tab and focuses the address bar with the keyboard (#5).
 - Browser: layered video detection with capture-phase element listeners, DOM src observation, fetch/XHR content sniffing for HLS/DASH playlists, and detection log (#12).
@@ -20,6 +23,9 @@ This file is updated with every batch of changes and before every release push.
 - Browser: option to stop site autoplay videos until tapped (Settings › Browser › Videos) (#10).
 
 ### Changed
+- Browser: videos now play directly in the browser by default instead of automatically taking over playback or prompting, with per-site options to Open in mpvGo or Ask (#22).
+- Browser: tabs drawer navigation row moved to just below the header, styled for private tabs with "+" opening a private tab, and bottom bar removed (#21).
+- Browser: Bookmarks action moved into the ⋮ overflow menu top icon row, replacing New tab (#20).
 - Browser: opening the tabs panel by swiping from the left edge is now off by default to avoid accidental triggers with system back navigation and web sliders. It can still be turned on in Settings › Browser › Gestures.
 
 ### Fixed

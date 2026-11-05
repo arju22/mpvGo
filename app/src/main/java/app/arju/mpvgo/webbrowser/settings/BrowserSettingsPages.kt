@@ -43,10 +43,10 @@ internal const val ADBLOCK_RUST_VERSION = "0.13.3"
 internal val VideoTapMode.label: String
   get() =
     when (this) {
+      VideoTapMode.ALWAYS_WEB -> "Play in browser"
       VideoTapMode.ASK_ONCE_PER_SITE -> "Ask once per site"
       VideoTapMode.ALWAYS_ASK -> "Always ask"
       VideoTapMode.ALWAYS_MPVGO -> "Always play in mpvGo"
-      VideoTapMode.ALWAYS_WEB -> "Always use the web player"
     }
 
 internal fun historyLabel(days: Int): String = if (days <= 0) "Forever" else if (days == 365) "1 year" else "$days days"
@@ -185,7 +185,7 @@ internal fun VideoPage() {
   val prefs = koinInject<BrowserPreferences>()
   val mode by prefs.videoTapMode.collectAsState()
   val choices by prefs.siteChoices.collectAsState()
-  val current = runCatching { VideoTapMode.valueOf(mode) }.getOrDefault(VideoTapMode.ASK_ONCE_PER_SITE)
+  val current = runCatching { VideoTapMode.valueOf(mode) }.getOrDefault(VideoTapMode.ALWAYS_WEB)
   val openVideosInStr by prefs.openVideosIn.collectAsState()
   val playerMode = runCatching { BrowserVideoPlayerMode.valueOf(openVideosInStr) }.getOrDefault(BrowserVideoPlayerMode.SMALL_WINDOW)
   BrowserSettingsScaffold("Video playback") {

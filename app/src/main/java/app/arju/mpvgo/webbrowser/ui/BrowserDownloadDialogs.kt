@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -49,12 +50,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import app.arju.mpvgo.R
 import app.arju.mpvgo.webbrowser.core.BrowserDownloads
 import app.arju.mpvgo.webbrowser.core.DetectedMedia
 import app.arju.mpvgo.webbrowser.core.MediaEvent
 import app.arju.mpvgo.webbrowser.core.MediaKind
+import app.arju.mpvgo.webbrowser.core.VideoNamer
 import java.util.Locale
 
 /** The page started a video: play it in mpvGo, download it, keep the web player or copy the link. */
@@ -211,11 +219,10 @@ fun FoundVideosSheet(
           val done = isDownloaded(item)
           ListItem(
             headlineContent = {
-              Text(BrowserDownloads.fileName(item.url).ifBlank { item.url }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+              Text(VideoNamer.nameFor(item), maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
             supportingContent = {
-              val size = if (item.size > 0 && item.kind != MediaKind.HLS) Formatter.formatShortFileSize(context, item.size) else null
-              Text(listOfNotNull(BrowserDownloads.streamInfo(item), size).joinToString(" · "))
+              Text(formatStreamInfo(context, item))
             },
             trailingContent = {
               Row(verticalAlignment = Alignment.CenterVertically) {
@@ -226,7 +233,12 @@ fun FoundVideosSheet(
                 } else {
                   IconButton(onClick = { onDownload(item) }) { Icon(Icons.Filled.Download, "Download") }
                 }
-                IconButton(onClick = { onPlay(item) }) { Icon(Icons.Filled.PlayArrow, "Play in mpvGo") }
+                IconButton(onClick = { onPlay(item) }) {
+                  Icon(
+                    painter = painterResource(R.drawable.ic_mpvgo_monochrome),
+                    contentDescription = "Play in mpvGo",
+                  )
+                }
               }
             },
           )
@@ -367,3 +379,51 @@ fun LinkMenuSheet(
     Spacer(Modifier.height(16.dp))
   }
 }
+
+private fun formatStreamInfo(context: Context, item: DetectedMedia): androidx.compose.ui.text.AnnotatedString {
+  val res: String? = item.quality?.removePrefix("up to ")?.trim()
+    ?: (if (item.height > 0) "${item.height}p" else null)
+    ?: extractResolution(item.url)
+    ?: extractResolution(item.title)
+
+  val sizeText: String? = when (item.kind) {
+    MediaKind.HLS, MediaKind.DASH ->
+      if (item.estimatedSize > 0L) "≈ " + Formatter.formatShortFileSize(context, item.estimatedSize) else null
+    MediaKind.FILE ->
+      if (item.size > 0L) Formatter.formatShortFileSize(context, item.size) else "…"
+  }
+
+  val typeText: String? = when (item.kind) {
+    MediaKind.HLS -> "HLS"
+    MediaKind.DASH -> "DASH"
+    MediaKind.FILE -> {
+      val ext = BrowserDownloads.fileName(item.url).substringAfterLast('.', "")
+        .substringBefore('?').uppercase(Locale.US)
+      if (ext in listOf("MP4", "WEBM", "MKV", "M4V", "MOV", "TS", "FLV", "AVI")) ext else "MP4"
+    }
+  }
+
+  val parts = mutableListOf<Pair<String, Boolean>>()
+  if (!res.isNullOrBlank()) parts += (res to true)
+  if (!sizeText.isNullOrBlank()) parts += (sizeText to false)
+  if (!typeText.isNullOrBlank()) parts += (typeText to false)
+
+  return buildAnnotatedString {
+    parts.forEachIndexed { i, (text, isBold) ->
+      if (i > 0) append(" · ")
+      if (isBold) {
+        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+          append(text)
+        }
+      } else {
+        append(text)
+      }
+    }
+  }
+}
+
+private fun extractResolution(text: String): String? {
+  val match = Regex("""\b(2160|1440|1080|720|480|360|240)p?\b""", RegexOption.IGNORE_CASE).find(text)
+  return match?.groupValues?.get(1)?.let { "${it}p" }
+}
+

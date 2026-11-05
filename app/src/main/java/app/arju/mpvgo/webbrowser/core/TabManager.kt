@@ -455,9 +455,7 @@ class TabManager(
     val media = tab.sniffer.match(src)
     when (PlayTakeover.decide(prefs.mode(), prefs.siteChoice(host), tab.pageUrl, media != null, false, userGesture)) {
       PlayTakeover.Action.LET_PAGE_PLAY -> {
-        if (prefs.stopAutoplay.get() && !userGesture) {
-          reply.post("pause")
-        }
+        // Play inside page, no prompt and no takeover
       }
       PlayTakeover.Action.PLAY_IN_MPVGO -> {
         reply.post("pause")
@@ -521,21 +519,23 @@ class TabManager(
   fun play(
     tab: BrowserTab,
     media: DetectedMedia,
+    fromFoundVideos: Boolean = false,
   ) {
     pauseAll()
     if (!tab.isPrivate) library.markPlayed(tab.pageUrl)
-    _events.tryEmit(Event.Launch(buildRequest(tab, media)))
+    _events.tryEmit(Event.Launch(buildRequest(tab, media, fromFoundVideos)))
   }
 
   fun buildRequest(
     tab: BrowserTab,
     media: DetectedMedia,
+    fromFoundVideos: Boolean = false,
   ): MediaRequest {
     val frame = media.frameUrl.ifBlank { tab.pageUrl }
-    val startInPip = prefs.playerMode() == BrowserVideoPlayerMode.SMALL_WINDOW
+    val startInPip = fromFoundVideos && (prefs.playerMode() == BrowserVideoPlayerMode.SMALL_WINDOW)
     return MediaRequest(
       url = media.url,
-      title = media.pageTitle.ifBlank { tab._title.value }.takeIf { it.isNotBlank() },
+      title = VideoNamer.nameFor(media).takeIf { it.isNotBlank() } ?: media.pageTitle.ifBlank { tab._title.value }.takeIf { it.isNotBlank() },
       userAgent = tab.userAgent.takeIf { it.isNotBlank() },
       referer = frame,
       origin = GoWebViewFactory.originOf(frame),

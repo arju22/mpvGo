@@ -303,8 +303,17 @@ internal class GoWebViewFactory(
         val height = json.optInt("height", 0)
         val gesture = json.optBoolean("gesture", false)
         val src = json.optString("src").ifBlank { null }
+        val title = json.optString("title").ifBlank { tab._title.value }
         if (src != null && src.startsWith("http")) {
-          tab.sniffer.onRequest(src, null, frame.ifBlank { tab.pageUrl }, tab.pageUrl, tab._title.value)
+          tab.sniffer.onRequest(
+            url = src,
+            mime = null,
+            frameUrl = frame.ifBlank { tab.pageUrl },
+            pageUrl = tab.pageUrl,
+            pageTitle = tab._title.value,
+            title = title,
+            height = height,
+          )
         }
         val isIgnored = PlayTakeover.shouldIgnoreVideo(muted, loop, controls, width, height)
         if (isIgnored) return

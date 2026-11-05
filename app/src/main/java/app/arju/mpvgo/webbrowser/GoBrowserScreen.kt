@@ -645,7 +645,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
         isDownloaded = { BrowserDownloads.findCompleted(downloads, it.url) != null },
         onPlay = {
           showMedia = false
-          tabs.play(tab, it)
+          tabs.play(tab, it, fromFoundVideos = true)
         },
         onDownload = {
           showMedia = false

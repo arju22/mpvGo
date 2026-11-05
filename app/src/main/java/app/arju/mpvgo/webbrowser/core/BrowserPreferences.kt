@@ -9,7 +9,7 @@ enum class BrowserVideoPlayerMode(val label: String) {
   FULL_SCREEN("Full screen"),
 }
 
-enum class SiteChoice { MPVGO, WEB }
+enum class SiteChoice { MPVGO, WEB, ASK }
 
 /** What "Clear data when I exit" can remove. */
 enum class ExitClear(val label: String) {
@@ -20,7 +20,7 @@ enum class ExitClear(val label: String) {
 }
 
 class BrowserPreferences(store: PreferenceStore) {
-  val videoTapMode = store.getString("browser_video_tap_mode", VideoTapMode.ASK_ONCE_PER_SITE.name)
+  val videoTapMode = store.getString("browser_video_tap_mode", VideoTapMode.ALWAYS_WEB.name)
 
   /** Entries are "host=MPVGO" or "host=WEB". */
   val siteChoices = store.getStringSet("browser_site_choices", emptySet())
@@ -38,7 +38,23 @@ class BrowserPreferences(store: PreferenceStore) {
   val speedDials = store.getString("browser_speed_dials", "")
 
   /** Up to two top-bar shortcut buttons, comma-separated [TopBarButton] names. */
-  val topBarButtons = store.getString("browser_top_bar_buttons", "${TopBarButton.BOOKMARKS.name},${TopBarButton.DOWNLOADS.name}")
+  val topBarButtons = store.getString("browser_top_bar_buttons", "${TopBarButton.NET_SPEED.name},${TopBarButton.DOWNLOADS.name}")
+
+  init {
+    val curMode = videoTapMode.get()
+    if (curMode == VideoTapMode.ASK_ONCE_PER_SITE.name) {
+      videoTapMode.set(VideoTapMode.ALWAYS_WEB.name)
+    }
+    val current = topBarButtons.get()
+    if (current.contains("BOOKMARKS")) {
+      val migrated = current.split(',')
+        .map { if (it.trim() == "BOOKMARKS") TopBarButton.NET_SPEED.name else it.trim() }
+        .distinct()
+        .take(TopBarButton.MAX)
+        .joinToString(",")
+      topBarButtons.set(migrated)
+    }
+  }
   val pullToRefresh = store.getBoolean("browser_pull_to_refresh", true)
 
   /** Reopen the last normal tabs when the browser starts. Private tabs are never saved. */
@@ -93,7 +109,7 @@ class BrowserPreferences(store: PreferenceStore) {
 
   fun topButtons(): List<TopBarButton> = TopBarButton.parse(topBarButtons.get())
 
-  fun mode(): VideoTapMode = runCatching { VideoTapMode.valueOf(videoTapMode.get()) }.getOrDefault(VideoTapMode.ASK_ONCE_PER_SITE)
+  fun mode(): VideoTapMode = runCatching { VideoTapMode.valueOf(videoTapMode.get()) }.getOrDefault(VideoTapMode.ALWAYS_WEB)
 
   fun playerMode(): BrowserVideoPlayerMode =
     runCatching { BrowserVideoPlayerMode.valueOf(openVideosIn.get()) }.getOrDefault(BrowserVideoPlayerMode.SMALL_WINDOW)
@@ -120,19 +136,24 @@ object PlayTakeover {
     isDrm: Boolean,
     userGesture: Boolean = true,
   ): Action {
-    if (!userGesture) return Action.LET_PAGE_PLAY
     if (isDrm || MediaClassifier.isBlockedForPlayback(pageUrl)) return Action.LET_PAGE_PLAY
-    return when (mode) {
-      VideoTapMode.ALWAYS_WEB -> Action.LET_PAGE_PLAY
+    val effectiveAction = when (mode) {
       VideoTapMode.ALWAYS_ASK -> Action.ASK
       VideoTapMode.ALWAYS_MPVGO -> if (hasStream) Action.PLAY_IN_MPVGO else Action.ASK
-      VideoTapMode.ASK_ONCE_PER_SITE ->
+      VideoTapMode.ALWAYS_WEB, VideoTapMode.ASK_ONCE_PER_SITE -> {
         when (siteChoice) {
-          SiteChoice.WEB -> Action.LET_PAGE_PLAY
           SiteChoice.MPVGO -> if (hasStream) Action.PLAY_IN_MPVGO else Action.ASK
-          null -> Action.ASK
+          SiteChoice.ASK -> Action.ASK
+          SiteChoice.WEB -> Action.LET_PAGE_PLAY
+          null -> if (mode == VideoTapMode.ALWAYS_WEB) Action.LET_PAGE_PLAY else Action.ASK
         }
+      }
     }
+    // Safeguards: ignore autoplay unless there is a user gesture for sites set to mpvGo or Ask
+    if (effectiveAction != Action.LET_PAGE_PLAY && !userGesture) {
+      return Action.LET_PAGE_PLAY
+    }
+    return effectiveAction
   }
 
   /** Muted, looping, or tiny (<200px) preview videos without controls are ignored. */

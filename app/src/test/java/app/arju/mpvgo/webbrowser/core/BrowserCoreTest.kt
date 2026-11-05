@@ -56,7 +56,10 @@ class BrowserCoreTest {
     assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ASK_ONCE_PER_SITE, SiteChoice.WEB, page, true, false))
     assertEquals(PlayTakeover.Action.ASK, PlayTakeover.decide(VideoTapMode.ALWAYS_ASK, SiteChoice.MPVGO, page, true, false))
     assertEquals(PlayTakeover.Action.PLAY_IN_MPVGO, PlayTakeover.decide(VideoTapMode.ALWAYS_MPVGO, null, page, true, false))
-    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ALWAYS_WEB, SiteChoice.MPVGO, page, true, false))
+    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ALWAYS_WEB, null, page, true, false))
+    assertEquals(PlayTakeover.Action.PLAY_IN_MPVGO, PlayTakeover.decide(VideoTapMode.ALWAYS_WEB, SiteChoice.MPVGO, page, true, false))
+    assertEquals(PlayTakeover.Action.ASK, PlayTakeover.decide(VideoTapMode.ALWAYS_WEB, SiteChoice.ASK, page, true, false))
+    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ALWAYS_WEB, SiteChoice.WEB, page, true, false))
     assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ALWAYS_MPVGO, null, page, true, true))
     assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ALWAYS_MPVGO, null, "https://www.youtube.com/watch", true, false))
 
