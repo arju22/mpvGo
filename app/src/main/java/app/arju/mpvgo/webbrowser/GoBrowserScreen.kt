@@ -687,6 +687,8 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
       val blocked by tab.blocked.collectAsState()
       val popups by adPrefs.blockPopups.collectAsState()
       val choices by prefs.siteChoices.collectAsState()
+      val siteUas by prefs.siteUserAgents.collectAsState()
+      val globalPreset by prefs.userAgentPreset.collectAsState()
       ModalBottomSheet(onDismissRequest = { showSite = false }) {
         SiteSettingsContent(
           host = host,
@@ -694,9 +696,16 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
           adBlockOn = adBlockOnSite,
           blockPopups = popups,
           videoChoice = choices.let { prefs.siteChoice(host) },
+          uaPreset = siteUas.let { prefs.siteUaPreset(host) },
+          globalPreset = prefs.globalUaPreset(),
           onAdBlock = { on -> if (on != adBlockOnSite) onAction(BrowserAction.AD_BLOCK) },
           onBlockPopups = { adPrefs.blockPopups.set(it) },
           onVideoChoice = { prefs.rememberSite(host, it) },
+          onUaPreset = { preset ->
+            prefs.rememberSiteUa(host, preset)
+            tabs.applySettings()
+            tab.webView?.reload()
+          },
         )
       }
     }

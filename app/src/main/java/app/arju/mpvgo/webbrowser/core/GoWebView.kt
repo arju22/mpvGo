@@ -200,11 +200,16 @@ internal class GoWebViewFactory(
       WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, prefs.darkWebsites.get())
     }
     runCatching { BrowserProfiles.cookieManager(tab.isPrivate).setAcceptThirdPartyCookies(webView, !prefs.blockThirdPartyCookies.get()) }
-    val mobile = prefs.userAgent.get().ifBlank { defaultUserAgent }
-    if (mobile != tab.mobileUserAgent) {
-      tab.mobileUserAgent = mobile
-      settings.userAgentString = if (tab.desktop.value) DesktopMode.userAgent(mobile) else mobile
-      tab.userAgent = settings.userAgentString
+    val host = UserAgentManager.hostOf(tab.url.value.ifBlank { tab.pageUrl })
+    val (preset, ua) = prefs.resolveUaForHost(host, defaultUserAgent, desktopOverride = tab.desktop.value)
+    if (ua != tab.userAgent) {
+      tab.userAgent = ua
+      settings.userAgentString = ua
+      UserAgentManager.applyClientHints(settings, preset, defaultUserAgent)
+      if (preset == UserAgentPreset.DESKTOP || preset == UserAgentPreset.TABLET) {
+        settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
+      }
     }
   }
 
@@ -395,6 +400,7 @@ internal class GoWebViewFactory(
       if (url != tab.pageUrl) {
         tab.sniffer.reset()
         tab._blocked.value = 0
+        applySettings(view, tab)
       }
       tab.pageUrl = url
       tab._url.value = url

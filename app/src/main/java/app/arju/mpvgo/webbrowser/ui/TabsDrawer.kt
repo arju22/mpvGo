@@ -1,5 +1,6 @@
 package app.arju.mpvgo.webbrowser.ui
 
+import app.arju.mpvgo.webbrowser.core.UserAgentPreset
 import android.app.ActivityManager
 import android.content.Context
 import androidx.compose.foundation.Canvas
@@ -391,7 +392,7 @@ private fun TabRow(
   }
 }
 
-/** Per-site settings: ad block, pop-ups and what a video tap does. */
+/** Per-site settings: ad block, pop-ups, video tap and user agent. */
 @Composable
 fun SiteSettingsContent(
   host: String,
@@ -399,9 +400,12 @@ fun SiteSettingsContent(
   adBlockOn: Boolean,
   blockPopups: Boolean,
   videoChoice: SiteChoice?,
+  uaPreset: UserAgentPreset?,
+  globalPreset: UserAgentPreset,
   onAdBlock: (Boolean) -> Unit,
   onBlockPopups: (Boolean) -> Unit,
   onVideoChoice: (SiteChoice?) -> Unit,
+  onUaPreset: (UserAgentPreset?) -> Unit,
 ) {
   Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
     Text(host, style = MaterialTheme.typography.titleMedium)
@@ -420,6 +424,22 @@ fun SiteSettingsContent(
         verticalAlignment = Alignment.CenterVertically,
       ) {
         RadioButton(selected = videoChoice == choice, onClick = null, modifier = Modifier.padding(12.dp))
+        Text(label)
+      }
+    }
+    Spacer(Modifier.height(8.dp))
+    Text("User agent for this site", style = MaterialTheme.typography.titleSmall)
+    listOf(
+      null to "Default (${globalPreset.displayName})",
+      UserAgentPreset.PHONE to "Phone",
+      UserAgentPreset.TABLET to "Tablet",
+      UserAgentPreset.DESKTOP to "Desktop",
+    ).forEach { (preset, label) ->
+      Row(
+        Modifier.fillMaxWidth().selectable(uaPreset == preset, role = Role.RadioButton) { onUaPreset(preset) },
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        RadioButton(selected = uaPreset == preset, onClick = null, modifier = Modifier.padding(12.dp))
         Text(label)
       }
     }

@@ -30,6 +30,8 @@ class BrowserPreferences(store: PreferenceStore) {
   val openVideosIn = store.getString("browser_open_videos_in", BrowserVideoPlayerMode.SMALL_WINDOW.name)
   val javascript = store.getBoolean("browser_javascript", true)
   val userAgent = store.getString("browser_user_agent", "")
+  val userAgentPreset = store.getString("browser_user_agent_preset", UserAgentPreset.PHONE.name)
+  val siteUserAgents = store.getStringSet("browser_site_user_agents", emptySet())
   val desktopSite = store.getBoolean("browser_desktop_site", false)
   val searchEngine = store.getString("browser_search_engine", SearchEngine.GOOGLE.name)
   val customSearchUrl = store.getString("browser_custom_search_url", "")
@@ -90,7 +92,7 @@ class BrowserPreferences(store: PreferenceStore) {
   val resettable
     get() =
       listOf(
-        videoTapMode, floatingMediaButton, addWebVideosToRecents, stopAutoplay, openVideosIn, javascript, userAgent, desktopSite,
+        videoTapMode, floatingMediaButton, addWebVideosToRecents, stopAutoplay, openVideosIn, javascript, userAgent, userAgentPreset, desktopSite,
         searchEngine, customSearchUrl, topBarButtons, pullToRefresh, rememberTabs, historyDays,
         siteTiles, textZoom, darkWebsites, showTabCount, swipeAddressBar, swipeTabsPanel,
         searchSuggestions, suggestCopiedLink, blockThirdPartyCookies, httpsUpgrade, safeBrowsing,
@@ -113,6 +115,40 @@ class BrowserPreferences(store: PreferenceStore) {
 
   fun playerMode(): BrowserVideoPlayerMode =
     runCatching { BrowserVideoPlayerMode.valueOf(openVideosIn.get()) }.getOrDefault(BrowserVideoPlayerMode.SMALL_WINDOW)
+
+  fun globalUaPreset(): UserAgentPreset = UserAgentPreset.fromName(userAgentPreset.get())
+
+  fun siteUaPreset(host: String): UserAgentPreset? = UserAgentManager.sitePresetFor(host, siteUserAgents.get())
+
+  fun siteCustomUa(host: String): String? = UserAgentManager.siteCustomUaFor(host, siteUserAgents.get())
+
+  fun rememberSiteUa(
+    host: String,
+    preset: UserAgentPreset?,
+    customUa: String? = null,
+  ) {
+    siteUserAgents.set(UserAgentManager.withSitePreset(siteUserAgents.get(), host, preset, customUa))
+  }
+
+  fun resolveUaForHost(
+    host: String?,
+    defaultUa: String,
+    desktopOverride: Boolean = false,
+  ): Pair<UserAgentPreset, String> {
+    if (desktopOverride) {
+      return UserAgentPreset.DESKTOP to UserAgentManager.desktop(defaultUa)
+    }
+    val h = host?.lowercase()
+    val sitePreset = if (h != null) siteUaPreset(h) else null
+    val effectivePreset = sitePreset ?: globalUaPreset()
+    val customStr = if (sitePreset == UserAgentPreset.CUSTOM && h != null) {
+      siteCustomUa(h) ?: userAgent.get()
+    } else {
+      userAgent.get()
+    }
+    val resolvedString = UserAgentManager.resolve(effectivePreset, customStr, defaultUa)
+    return effectivePreset to resolvedString
+  }
 
   fun siteChoice(host: String): SiteChoice? = PlayTakeover.choiceFor(host, siteChoices.get())
 

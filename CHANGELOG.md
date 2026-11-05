@@ -10,6 +10,7 @@ This file is updated with every batch of changes and before every release push.
 ## [Unreleased]
 
 ### Added
+- Browser: User-Agent selector with 4 presets (Phone, Tablet, Desktop, Custom) and Client Hints metadata support, plus per-site User-Agent overrides accessible from the site settings panel (#16).
 - Player: stream quality picker for online network streams (HLS/DASH variants and multi-stream sources) with top bar chip, adaptive auto option, quality sheet, and preferred quality preferences (#8).
 - Browser/Player: browser web videos open in a small Android Picture-in-Picture floating window over the browser by default, with an option to choose "Small window" or "Full screen" in Settings › Browser › Videos (#11).
 - Browser: compact tab count switch and live device RAM indicator (used / total GB) in the tabs drawer header (#18).

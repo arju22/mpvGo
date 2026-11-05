@@ -1,5 +1,6 @@
 package app.arju.mpvgo.webbrowser.settings
 
+import app.arju.mpvgo.webbrowser.core.UserAgentPreset
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -373,7 +374,7 @@ private fun SitePermissionsPage() {
 }
 
 @Composable
-private fun RemovableRow(
+internal fun RemovableRow(
   title: String,
   summary: String,
   onRemove: () -> Unit,
@@ -422,43 +423,47 @@ internal fun ExitClearDialog(
 
 @Composable
 internal fun UserAgentDialog(
-  initial: String,
+  initialPreset: UserAgentPreset,
+  initialCustom: String,
   onDismiss: () -> Unit,
-  onConfirm: (String) -> Unit,
+  onConfirm: (preset: UserAgentPreset, customString: String) -> Unit,
 ) {
-  var custom by remember { mutableStateOf(initial.isNotBlank()) }
-  var text by remember { mutableStateOf(initial) }
+  var selectedPreset by remember { mutableStateOf(initialPreset) }
+  var text by remember { mutableStateOf(initialCustom) }
   AlertDialog(
     onDismissRequest = onDismiss,
     title = { Text("User agent") },
     text = {
       Column {
-        Row(Modifier.fillMaxWidth().clickable { custom = false }, verticalAlignment = Alignment.CenterVertically) {
-          RadioButton(selected = !custom, onClick = null, modifier = Modifier.padding(12.dp))
-          Text("Default (Android)")
+        listOf(
+          UserAgentPreset.PHONE to "Phone (default)",
+          UserAgentPreset.TABLET to "Tablet",
+          UserAgentPreset.DESKTOP to "Desktop",
+          UserAgentPreset.CUSTOM to "Custom",
+        ).forEach { (preset, label) ->
+          Row(
+            Modifier.fillMaxWidth().clickable { selectedPreset = preset },
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            RadioButton(selected = selectedPreset == preset, onClick = null, modifier = Modifier.padding(12.dp))
+            Text(label)
+          }
         }
-        Row(Modifier.fillMaxWidth().clickable { custom = true }, verticalAlignment = Alignment.CenterVertically) {
-          RadioButton(selected = custom, onClick = null, modifier = Modifier.padding(12.dp))
-          Text("Custom")
-        }
-        if (custom) {
+        if (selectedPreset == UserAgentPreset.CUSTOM) {
           OutlinedTextField(
             value = text,
             onValueChange = { text = it },
-            label = { Text("User agent string") },
-            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Custom user agent string") },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
           )
         }
-        Text(
-          "Desktop site still switches to a desktop user agent.",
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.outline,
-          modifier = Modifier.padding(top = 8.dp),
-        )
       }
     },
     confirmButton = {
-      TextButton(enabled = !custom || text.isNotBlank(), onClick = { onConfirm(if (custom) text.trim() else "") }) { Text("Save") }
+      TextButton(
+        enabled = selectedPreset != UserAgentPreset.CUSTOM || text.isNotBlank(),
+        onClick = { onConfirm(selectedPreset, text.trim()) },
+      ) { Text("Save") }
     },
     dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
   )

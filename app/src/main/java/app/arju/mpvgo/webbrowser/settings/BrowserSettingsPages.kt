@@ -28,6 +28,7 @@ import app.arju.mpvgo.webbrowser.core.ExitClear
 import app.arju.mpvgo.webbrowser.core.SearchEngine
 import app.arju.mpvgo.webbrowser.core.TabManager
 import app.arju.mpvgo.webbrowser.core.TopBarButton
+import app.arju.mpvgo.webbrowser.core.UserAgentPreset
 import app.arju.mpvgo.webbrowser.core.VideoTapMode
 import app.arju.mpvgo.webbrowser.library.BrowserLibrary
 import app.arju.mpvgo.webbrowser.ui.ClearDataDialog
@@ -346,13 +347,16 @@ internal fun AdvancedPage() {
   val context = LocalContext.current
   val tabs = koinInject<TabManager>()
   val prefs = tabs.prefs
-  val ua by prefs.userAgent.collectAsState()
+  val uaPresetName by prefs.userAgentPreset.collectAsState()
+  val uaCustom by prefs.userAgent.collectAsState()
+  val siteUas by prefs.siteUserAgents.collectAsState()
   var editUa by remember { mutableStateOf(false) }
   var confirmReset by remember { mutableStateOf(false) }
+  val currentPreset = UserAgentPreset.fromName(uaPresetName)
   val webView = remember { WebViewCompat.getCurrentWebViewPackage(context)?.versionName ?: "unknown" }
   BrowserSettingsScaffold("Advanced") {
     section(null) {
-      LinkRow("User agent", ua.ifBlank { "Default (Android)" }) { editUa = true }
+      LinkRow("User agent", currentPreset.displayName) { editUa = true }
       PreferenceDivider()
       SwitchRow(prefs.javascript, "JavaScript", "Needed for video detection") { tabs.applySettings() }
       PreferenceDivider()
@@ -360,13 +364,35 @@ internal fun AdvancedPage() {
       PreferenceDivider()
       LinkRow("Versions", "WebView $webView · Ad block $ADBLOCK_RUST_VERSION") {}
     }
+
+    if (siteUas.isNotEmpty()) {
+      section("Site user agents") {
+        siteUas.sorted().forEachIndexed { i, entry ->
+          if (i > 0) PreferenceDivider()
+          val host = entry.substringBefore('=')
+          val rawPreset = entry.substringAfter('=').substringBefore(':')
+          val preset = UserAgentPreset.fromName(rawPreset)
+          RemovableRow(host, preset.displayName) {
+            prefs.siteUserAgents.set(siteUas - entry)
+            tabs.applySettings()
+          }
+        }
+        PreferenceDivider()
+        LinkRow("Reset all site user agents", "Remove overrides for all sites") {
+          prefs.siteUserAgents.set(emptySet())
+          tabs.applySettings()
+        }
+      }
+    }
   }
   if (editUa) {
     UserAgentDialog(
-      initial = ua,
+      initialPreset = currentPreset,
+      initialCustom = uaCustom,
       onDismiss = { editUa = false },
-    ) {
-      prefs.userAgent.set(it)
+    ) { preset, customString ->
+      prefs.userAgentPreset.set(preset.name)
+      prefs.userAgent.set(customString)
       tabs.applySettings()
       editUa = false
     }
