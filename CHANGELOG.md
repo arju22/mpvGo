@@ -10,6 +10,7 @@ This file is updated with every batch of changes and before every release push.
 ## [Unreleased]
 
 ### Added
+- Browser/Adblock: enhanced ad blocking with expanded filter lists (uBlock Badware, Privacy, Unbreak, Quick fixes; Brave Unbreak; IndianList; AdGuard Mobile), YouTube ad placement pruning and fast-forward skipping, procedural cosmetic engine (:has-text, :upward, :remove), and "Report ads on this site" action in site settings (#13).
 - Browser: site favicon disk and in-memory cache (`FaviconStore`) with 96px quota-bounded storage, HTML link sniffing, deterministic host color fallback, and live start page and drawer integration (#9).
 - Browser: draggable video detection floating button with edge-snapping, lift animation during drag, persistent orientation-aware position, and shared FabDefaults insets matching the Home screen (#14).
 - Browser: User-Agent selector with 4 presets (Phone, Tablet, Desktop, Custom) and Client Hints metadata support, plus per-site User-Agent overrides accessible from the site settings panel (#16).

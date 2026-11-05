@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -410,6 +411,7 @@ fun SiteSettingsContent(
   onBlockPopups: (Boolean) -> Unit,
   onVideoChoice: (SiteChoice?) -> Unit,
   onUaPreset: (UserAgentPreset?) -> Unit,
+  onReportAds: (() -> Unit)? = null,
 ) {
   Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
     Text(host, style = MaterialTheme.typography.titleMedium)
@@ -445,6 +447,17 @@ fun SiteSettingsContent(
       ) {
         RadioButton(selected = uaPreset == preset, onClick = null, modifier = Modifier.padding(12.dp))
         Text(label)
+      }
+    }
+    if (onReportAds != null) {
+      Spacer(Modifier.height(16.dp))
+      androidx.compose.material3.OutlinedButton(
+        onClick = onReportAds,
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Icon(Icons.Filled.Warning, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Report ads on this site")
       }
     }
   }

@@ -52,6 +52,15 @@ class AdBlockHelpersTest {
 
   @Test
   fun defaultListsAreAllEnabled() {
-    assertEquals(setOf("easylist", "easyprivacy", "ublock", "cookies"), FilterLists.DEFAULT_ENABLED)
+    val defaults = FilterLists.DEFAULT_ENABLED
+    assertTrue(defaults.contains("easylist"))
+    assertTrue(defaults.contains("easyprivacy"))
+    assertTrue(defaults.contains("ublock"))
+    assertTrue(defaults.contains("ublock-badware"))
+    assertTrue(defaults.contains("ublock-privacy"))
+    assertTrue(defaults.contains("ublock-unbreak"))
+    assertTrue(defaults.contains("ublock-quick-fixes"))
+    assertTrue(defaults.contains("brave-unbreak"))
+    assertTrue(defaults.contains("cookies"))
   }
 }

@@ -15,21 +15,25 @@ object FilterLists {
     listOf(
       FilterList("easylist", "EasyList", "https://easylist.to/easylist/easylist.txt", true),
       FilterList("easyprivacy", "EasyPrivacy", "https://easylist.to/easylist/easyprivacy.txt", true),
-      FilterList(
-        "ublock",
-        "uBlock filters",
-        "https://ublockorigin.github.io/uAssets/filters/filters.txt",
-        true,
-      ),
-      FilterList(
-        "cookies",
-        "Cookie notices",
-        "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt",
-        true,
-      ),
+      FilterList("ublock", "uBlock filters", "https://ublockorigin.github.io/uAssets/filters/filters.txt", true),
+      FilterList("ublock-badware", "uBlock filters – Badware", "https://ublockorigin.github.io/uAssets/filters/badware.txt", true),
+      FilterList("ublock-privacy", "uBlock filters – Privacy", "https://ublockorigin.github.io/uAssets/filters/privacy.txt", true),
+      FilterList("ublock-unbreak", "uBlock filters – Unbreak", "https://ublockorigin.github.io/uAssets/filters/unbreak.txt", true),
+      FilterList("ublock-quick-fixes", "uBlock filters – Quick fixes", "https://ublockorigin.github.io/uAssets/filters/quick-fixes.txt", true),
+      FilterList("brave-unbreak", "Brave unbreak", "https://raw.githubusercontent.com/brave/adblock-lists/master/brave-unbreak.txt", true),
+      FilterList("indianlist", "IndianList", "https://easylist-downloads.adblockplus.org/indianlist.txt", false),
+      FilterList("adguard-mobile", "AdGuard Mobile Ads", "https://filters.adtidy.org/extension/ublock/filters/11.txt", false),
+      FilterList("cookies", "Cookie notices", "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt", true),
     )
 
-  val DEFAULT_ENABLED: Set<String> = BUILT_IN.filter { it.enabledByDefault }.map { it.id }.toSet()
+  val DEFAULT_ENABLED: Set<String>
+    get() {
+      val set = BUILT_IN.filter { it.enabledByDefault }.map { it.id }.toMutableSet()
+      if (Locale.getDefault().country.equals("IN", ignoreCase = true)) {
+        set.add("indianlist")
+      }
+      return set
+    }
 
   /** Stable file id for a custom list URL. */
   fun customId(url: String): String = "custom_" + Integer.toHexString(url.trim().hashCode())

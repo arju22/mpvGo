@@ -41,6 +41,72 @@
     try { return new URL(u, location.href).href; } catch (e) { return u; }
   }
 
+  var isYouTube = /^(m\.|www\.)?youtube\.com$/.test(location.hostname);
+  function cleanYtData(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    try {
+      delete obj.adPlacements;
+      delete obj.playerAds;
+      delete obj.adSlots;
+      delete obj.adBreakHeartbeatParams;
+      if (obj.playerResponse && typeof obj.playerResponse === 'object') {
+        cleanYtData(obj.playerResponse);
+      }
+    } catch (e) {}
+    return obj;
+  }
+
+  if (isYouTube) {
+    var _ytInitialPlayerResponse = window.ytInitialPlayerResponse;
+    if (_ytInitialPlayerResponse) cleanYtData(_ytInitialPlayerResponse);
+    try {
+      Object.defineProperty(window, 'ytInitialPlayerResponse', {
+        configurable: true,
+        enumerable: true,
+        get: function () { return _ytInitialPlayerResponse; },
+        set: function (val) { _ytInitialPlayerResponse = cleanYtData(val); }
+      });
+    } catch (e) {}
+
+    if (window.JSON) {
+      var origJsonParse = JSON.parse;
+      JSON.parse = function () {
+        var obj = origJsonParse.apply(this, arguments);
+        if (obj && typeof obj === 'object') {
+          if (obj.adPlacements || obj.playerAds || obj.adSlots) {
+            cleanYtData(obj);
+          }
+        }
+        return obj;
+      };
+    }
+
+    function skipYouTubeAds() {
+      try {
+        var adShowing = document.querySelector('.ad-showing video, .ad-interrupting video');
+        if (adShowing && isFinite(adShowing.duration) && adShowing.duration > 0) {
+          adShowing.muted = true;
+          adShowing.currentTime = adShowing.duration;
+        }
+        var skipBtn = document.querySelector(
+          '.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, .videoAdUiSkipButton, button.ytp-ad-skip-button'
+        );
+        if (skipBtn) {
+          skipBtn.click();
+        }
+        var adContainers = document.querySelectorAll(
+          '.ytp-ad-overlay-container, ytd-promoted-video-renderer, ytd-display-ad-renderer, ' +
+          'ytd-statement-banner-renderer, ytd-in-feed-ad-layout-renderer, ytd-banner-promo-renderer, ' +
+          'ytm-promoted-sparkles-web-renderer, ytm-companion-ad-renderer, .ad-container'
+        );
+        for (var i = 0; i < adContainers.length; i++) {
+          adContainers[i].remove();
+        }
+      } catch (e) {}
+    }
+    setInterval(skipYouTubeAds, 500);
+  }
+
   // fetch(): read the real Content-Type from the response the page already got, and sniff manifests.
   if (window.fetch) {
     var origFetch = window.fetch;
@@ -255,10 +321,6 @@
       }
     } catch (e) {}
   }, true);
-      } catch (e) {}
-      return origPlay.apply(this, arguments);
-    };
-  }
 
   function allMedia() {
     return Array.prototype.slice.call(document.querySelectorAll('video,audio'));
@@ -268,26 +330,95 @@
     allMedia().forEach(function (m) { try { m.pause(); } catch (e) {} });
   };
 
-  // Cosmetic filtering.
+  // Cosmetic filtering & procedural engine.
   var styleEl = null;
   var genericHide = false;
   var exceptions = '';
   var seenClasses = Object.create(null);
   var seenIds = Object.create(null);
+  var proceduralRules = [];
+
+  function runProcedural(selector) {
+    if (!selector) return;
+    try {
+      var hasTextMatch = selector.match(/^(.*?):has-text\((.*?)\)$/);
+      if (hasTextMatch) {
+        var baseSel = hasTextMatch[1].trim() || '*';
+        var textMatch = hasTextMatch[2].trim().replace(/^['"]|['"]$/g, '');
+        var elems = document.querySelectorAll(baseSel);
+        for (var i = 0; i < elems.length; i++) {
+          if (elems[i].textContent && elems[i].textContent.indexOf(textMatch) !== -1) {
+            elems[i].style.setProperty('display', 'none', 'important');
+          }
+        }
+        return;
+      }
+      var upwardMatch = selector.match(/^(.*?):upward\((.*?)\)$/);
+      if (upwardMatch) {
+        var baseSel = upwardMatch[1].trim() || '*';
+        var target = upwardMatch[2].trim();
+        var n = parseInt(target, 10);
+        var elems = document.querySelectorAll(baseSel);
+        for (var i = 0; i < elems.length; i++) {
+          var el = elems[i];
+          if (!isNaN(n)) {
+            var curr = el;
+            for (var j = 0; j < n && curr && curr.parentElement; j++) {
+              curr = curr.parentElement;
+            }
+            if (curr && curr !== document.body && curr !== document.documentElement) {
+              curr.style.setProperty('display', 'none', 'important');
+            }
+          } else {
+            var parent = el.closest(target);
+            if (parent) parent.style.setProperty('display', 'none', 'important');
+          }
+        }
+        return;
+      }
+      var removeMatch = selector.match(/^(.*?):remove\(\)$/);
+      if (removeMatch) {
+        var elems = document.querySelectorAll(removeMatch[1].trim());
+        for (var i = 0; i < elems.length; i++) {
+          elems[i].remove();
+        }
+        return;
+      }
+    } catch (e) {}
+  }
+
+  function applyProceduralAll() {
+    for (var i = 0; i < proceduralRules.length; i++) {
+      runProcedural(proceduralRules[i]);
+    }
+  }
 
   function addCss(selectors) {
     if (!selectors) return;
     try {
+      var parts = selectors.split(',');
+      var standard = [];
+      for (var pIdx = 0; pIdx < parts.length; pIdx++) {
+        var rule = parts[pIdx].trim();
+        if (!rule) continue;
+        if (rule.indexOf(':has-text(') !== -1 || rule.indexOf(':upward(') !== -1 || rule.indexOf(':remove()') !== -1) {
+          proceduralRules.push(rule);
+          runProcedural(rule);
+        } else {
+          standard.push(rule);
+        }
+      }
+      if (standard.length === 0) return;
+
       if (!styleEl) {
         styleEl = document.createElement('style');
         styleEl.setAttribute('data-mpvgo', '');
         (document.head || document.documentElement).appendChild(styleEl);
       }
-      var parts = selectors.split(',');
       var css = '';
       // Chunk so one bad selector can't void the whole rule.
-      for (var i = 0; i < parts.length; i += 200) {
-        css += parts.slice(i, i + 200).join(',') + '{display:none!important}\n';
+      for (var i = 0; i < standard.length; i += 200) {
+        css += standard.slice(i, i + 200).join(',') + '{display:none!important}\n';
       }
       styleEl.appendChild(document.createTextNode(css));
     } catch (e) {}
@@ -315,12 +446,14 @@
   function startObserver() {
     if (genericHide || !window.MutationObserver) return;
     collect(document.documentElement);
+    applyProceduralAll();
     new MutationObserver(function (records) {
       if (pending) return;
       pending = setTimeout(function () {
         pending = null;
         records = null;
         collect(document.documentElement);
+        applyProceduralAll();
       }, 400);
     }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'id'] });
   }

@@ -715,6 +715,23 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
             tabs.applySettings()
             tab.webView?.reload()
           },
+          onReportAds = {
+            showSite = false
+            val reportText = buildString {
+              appendLine("mpvGo Ad Report")
+              appendLine("Site: $tabUrl")
+              appendLine("Host: $host")
+              appendLine("User-Agent: ${tab.userAgent}")
+              appendLine("Ads Blocked: $blocked")
+              appendLine("AdBlock Enabled: $adBlockOnSite")
+            }
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+              type = "text/plain"
+              putExtra(android.content.Intent.EXTRA_SUBJECT, "Ad report for $host")
+              putExtra(android.content.Intent.EXTRA_TEXT, reportText)
+            }
+            context.startActivity(android.content.Intent.createChooser(intent, "Report ads"))
+          },
         )
       }
     }
