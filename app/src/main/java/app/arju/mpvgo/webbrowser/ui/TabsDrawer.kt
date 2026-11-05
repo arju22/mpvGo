@@ -68,6 +68,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.arju.mpvgo.webbrowser.adblock.SiteMatcher
+import app.arju.mpvgo.webbrowser.core.FaviconStore
+import org.koin.compose.koinInject
 import app.arju.mpvgo.webbrowser.core.BrowserTab
 import app.arju.mpvgo.webbrowser.core.SiteChoice
 import kotlinx.coroutines.delay
@@ -369,7 +371,9 @@ private fun TabRow(
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-      val bmp = icon
+      val faviconStore = koinInject<FaviconStore>()
+      val cachedIcon = remember(url) { if (!isPrivate && url.isNotEmpty()) faviconStore.get(SiteMatcher.host(url)) else null }
+      val bmp = icon ?: cachedIcon
       if (bmp != null) {
         Image(bmp.asImageBitmap(), null, Modifier.size(20.dp))
       } else {

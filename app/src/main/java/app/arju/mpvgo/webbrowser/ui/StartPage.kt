@@ -1,6 +1,7 @@
 package app.arju.mpvgo.webbrowser.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -59,8 +60,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import app.arju.mpvgo.webbrowser.adblock.SiteMatcher
+import app.arju.mpvgo.webbrowser.core.FaviconStore
 import app.arju.mpvgo.webbrowser.core.SearchEngine
+import org.koin.compose.koinInject
 import app.arju.mpvgo.webbrowser.core.SpeedDial
 import app.arju.mpvgo.webbrowser.core.SpeedDials
 
@@ -270,11 +277,17 @@ private fun SpeedDialGrid(
       chunk.forEachIndexed { col, dial ->
         val index = row * 4 + col
         if (dial == null) {
-          DialTile("Add", null, onClick = onAdd)
+          DialTile("Add", null, null, onClick = onAdd)
         } else {
           var menu by remember(dial) { mutableStateOf(false) }
           Box {
-            DialTile(dial.name, dial.name.take(1).uppercase(), onClick = { onOpen(dial) }, onLongClick = { menu = true })
+            DialTile(
+              label = dial.name,
+              letter = dial.name.take(1).uppercase(),
+              url = dial.url,
+              onClick = { onOpen(dial) },
+              onLongClick = { menu = true },
+            )
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
               DropdownMenuItem(text = { Text("Edit") }, leadingIcon = { Icon(Icons.Filled.Edit, null) }, onClick = {
                 menu = false
@@ -307,9 +320,24 @@ private fun SpeedDialGrid(
 private fun DialTile(
   label: String,
   letter: String?,
+  url: String? = null,
   onClick: () -> Unit,
   onLongClick: (() -> Unit)? = null,
 ) {
+  val faviconStore = koinInject<FaviconStore>()
+  val host = remember(url) { url?.let { FaviconStore.cleanHost(it) }.orEmpty() }
+  val cachedIcon by if (host.isNotEmpty()) {
+    faviconStore.flowFor(host).collectAsState()
+  } else {
+    remember { mutableStateOf(null) }
+  }
+
+  LaunchedEffect(url, host) {
+    if (url != null && host.isNotEmpty() && cachedIcon == null) {
+      faviconStore.fetchIfNeeded(url)
+    }
+  }
+
   Column(
     horizontalAlignment = Alignment.CenterHorizontally,
     modifier =
@@ -318,14 +346,37 @@ private fun DialTile(
         .combinedClickable(onClick = onClick, onLongClick = onLongClick)
         .padding(vertical = 4.dp),
   ) {
+    val tileShape = RoundedCornerShape(16.dp)
+    val bgColor = if (cachedIcon != null) {
+      MaterialTheme.colorScheme.surfaceContainerHigh
+    } else if (letter != null) {
+      FaviconStore.hostColor(host)
+    } else {
+      MaterialTheme.colorScheme.secondaryContainer
+    }
+
     Box(
-      Modifier.size(52.dp).background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp)),
+      Modifier
+        .size(52.dp)
+        .background(bgColor, tileShape),
       contentAlignment = Alignment.Center,
     ) {
-      if (letter == null) {
-        Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-      } else {
-        Text(letter, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+      androidx.compose.animation.AnimatedContent(
+        targetState = cachedIcon,
+        label = "dialIcon",
+      ) { icon ->
+        if (icon != null) {
+          Image(
+            bitmap = icon.asImageBitmap(),
+            contentDescription = label,
+            modifier = Modifier.size(32.dp),
+            contentScale = ContentScale.Fit,
+          )
+        } else if (letter == null) {
+          Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+        } else {
+          Text(letter, style = MaterialTheme.typography.titleLarge, color = Color.White)
+        }
       }
     }
     Spacer(Modifier.height(6.dp))

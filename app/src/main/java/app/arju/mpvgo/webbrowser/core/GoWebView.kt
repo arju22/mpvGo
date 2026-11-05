@@ -71,6 +71,7 @@ internal class GoWebViewFactory(
   private val adBlocker: AdBlocker,
   private val adPrefs: AdBlockPreferences,
   private val prefs: BrowserPreferences,
+  private val faviconStore: FaviconStore,
   private val scope: CoroutineScope,
 ) {
   private val hookScript: String by lazy {
@@ -418,6 +419,12 @@ internal class GoWebViewFactory(
       view.title?.takeIf { it.isNotBlank() }?.let { tab._title.value = it }
       updateNav(view)
       host.onPageFinished(tab, view)
+      if (!tab.isPrivate) {
+        val host = Uri.parse(url).host
+        if (!host.isNullOrBlank() && faviconStore.get(host) == null) {
+          faviconStore.fetchForHost(host)
+        }
+      }
     }
 
     override fun doUpdateVisitedHistory(
@@ -488,6 +495,12 @@ internal class GoWebViewFactory(
       icon: Bitmap?,
     ) {
       tab._favicon.value = icon
+      if (icon != null && !tab.isPrivate) {
+        val host = Uri.parse(view.url ?: tab.pageUrl).host
+        if (!host.isNullOrBlank()) {
+          faviconStore.save(host, icon)
+        }
+      }
     }
 
     override fun onCreateWindow(

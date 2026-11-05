@@ -96,6 +96,7 @@ class TabManager(
   adPrefs: AdBlockPreferences,
   val prefs: BrowserPreferences,
   private val library: BrowserLibrary,
+  val faviconStore: FaviconStore,
 ) : TabHost {
   sealed interface Event {
     /** The page started a video and the user should pick mpvGo or the web player. */
@@ -118,7 +119,7 @@ class TabManager(
   }
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-  private val factory = GoWebViewFactory(appContext, adBlocker, adPrefs, prefs, scope)
+  private val factory = GoWebViewFactory(appContext, adBlocker, adPrefs, prefs, faviconStore, scope)
   private val http by lazy {
     OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS).build()
   }
@@ -261,6 +262,7 @@ class TabManager(
       } else {
         runCatching { WebView(context).apply { clearCache(true) }.destroy() }
       }
+      faviconStore.clearAll()
     }
   }
 
