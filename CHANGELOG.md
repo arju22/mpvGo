@@ -9,44 +9,7 @@ This file is updated with every batch of changes and before every release push.
 
 ## [Unreleased]
 
-### Added
-- Player: online subtitle search supporting OpenSubtitles (with 64-bit MovieHash and text search), SubDL, and Podnapisi, with language filtering chips, download counts, ratings, exact match badges, archive decompression (ZIP/GZ), UTF-8 charset normalization, and auto-load into the player (#15).
-- Browser/Adblock: enhanced ad blocking with expanded filter lists (uBlock Badware, Privacy, Unbreak, Quick fixes; Brave Unbreak; IndianList; AdGuard Mobile), YouTube ad placement pruning and fast-forward skipping, procedural cosmetic engine (:has-text, :upward, :remove), and "Report ads on this site" action in site settings (#13).
-- Browser: site favicon disk and in-memory cache (`FaviconStore`) with 96px quota-bounded storage, HTML link sniffing, deterministic host color fallback, and live start page and drawer integration (#9).
-- Browser: draggable video detection floating button with edge-snapping, lift animation during drag, persistent orientation-aware position, and shared FabDefaults insets matching the Home screen (#14).
-- Browser: User-Agent selector with 4 presets (Phone, Tablet, Desktop, Custom) and Client Hints metadata support, plus per-site User-Agent overrides accessible from the site settings panel (#16).
-- Player: stream quality picker for online network streams (HLS/DASH variants and multi-stream sources) with top bar chip, adaptive auto option, quality sheet, and preferred quality preferences (#8).
-- Browser/Player: browser web videos open in a small Android Picture-in-Picture floating window over the browser by default, with an option to choose "Small window" or "Full screen" in Settings › Browser › Videos (#11).
-- Browser: compact tab count switch and live device RAM indicator (used / total GB) in the tabs drawer header (#18).
-- Browser: brief tab position flash (e.g. "3/5") on the top bar tabs button when switching tabs (#4).
-- Browser: live network speed pill in the top bar showing real-time device download/upload rates with independent unit scaling (B/s to GB/s) and private styling (#19).
-- Browser: smart video naming that cleans branding suffixes and disambiguates multiple streams (#7, #22).
-- Browser: found-videos sheet now displays resolution · size · type with bold resolution, estimated HLS sizes, and monochrome mpvGo play button (#22).
-- Browser: address bar tab switching now supports fling gestures, provides light haptic feedback, and bounces when reaching the first or last tab (#2).
-- Browser: tapping the Private box in the tabs drawer when there are no private tabs directly creates a new private tab and focuses the address bar with the keyboard (#5).
-- Browser: layered video detection with capture-phase element listeners, DOM src observation, fetch/XHR content sniffing for HLS/DASH playlists, and detection log (#12).
-- Browser: explanation cards for hidden-playlist streams and DRM/MSE blob streams in the found videos sheet (#12).
-- Browser: option to stop site autoplay videos until tapped (Settings › Browser › Videos) (#10).
-
-### Changed
-- Browser: videos now play directly in the browser by default instead of automatically taking over playback or prompting, with per-site options to Open in mpvGo or Ask (#22).
-- Browser: tabs drawer navigation row moved to just below the header, styled for private tabs with "+" opening a private tab, and bottom bar removed (#21).
-- Browser: Bookmarks action moved into the ⋮ overflow menu top icon row, replacing New tab (#20).
-- Browser: opening the tabs panel by swiping from the left edge is now off by default to avoid accidental triggers with system back navigation and web sliders. It can still be turned on in Settings › Browser › Gestures.
-
-### Fixed
-- Player: fixed PiP window disappearing when leaving the app by setting autoRemoveFromRecents to false (#681).
-- Player: fixed video continuing to play after closing PiP with the close button (#762).
-- Player: added PiP capability and permission checks before entering PiP mode to avoid UI hangs on unsupported devices (#736).
-- Browser: autoplaying and background page videos no longer force-open mpvGo or show takeover dialogs; only user-initiated playback triggers takeover (#10).
-- Browser: muted, looping, and preview videos under 200px without controls are ignored for player takeover (#10).
-- Browser: swiping the address bar to switch tabs now tracks the current tab dynamically and switches reliably on every swipe.
-- Browser: tapping outside the open tabs drawer or swiping left to close it now always closes the drawer even when the swipe-to-open gesture is turned off.
-- Browser: pressing Back on a tab opened from a link or pop-up now closes the tab and returns to the opener tab before exiting the browser.
-- Browser: opening the tabs drawer always opens on the section matching the current tab (Normal or Private), fixing state sticking to the previously selected section.
-
-
-## [1.1.0] - 2026-10-28
+## [1.1.0] - 2026-11-06
 
 This release adds the Go browser: a built-in web browser with ad blocking, video detection
 that plays web videos in mpvGo, and a download manager.
@@ -72,13 +35,14 @@ that plays web videos in mpvGo, and a download manager.
   EasyPrivacy, uBlock filters, cookie notices) are downloaded when the browser first opens and
   updated weekly; nothing loads until you open the browser. Adds about 1 MB to the APK.
 - Go browser core: tabs and private tabs (separate cookies and storage, no history), ad and
-  tracker blocking with element hiding, and video detection. A "videos found" chip lists the
-  videos on the page; when a page starts a video, mpvGo asks whether to play it in mpvGo or the
-  web player (with "Remember for this site"). Videos open in mpvGo with the page's cookies,
+  tracker blocking with element hiding, and video detection. A floating video button lists
+  the videos found on the page. Videos play in the page by default; per site you can choose to
+  open them in mpvGo instead or be asked each time. Videos open in mpvGo with the page's cookies,
   referrer and user agent, so protected streams keep working.
 - Go browser interface: a start page with a search box (Google, DuckDuckGo, Brave, Bing,
   Startpage or a custom engine) and editable speed dials; a top bar with the tab count, address
-  box (swipe it to switch tabs), Bookmarks and Downloads buttons and a menu; a tabs drawer with
+  box (swipe it to switch tabs), a network speed indicator, a Downloads button and a menu (with
+  Bookmarks); a tabs drawer with
   normal and private tabs; find in page; desktop site per tab; pull to refresh; a per-site
   settings sheet (ad block, pop-ups, what happens when you tap a video); and a floating media
   button with the number of videos found.
@@ -96,6 +60,26 @@ that plays web videos in mpvGo, and a download manager.
   permissions, clear data when you exit, how long to keep history) and advanced (user agent,
   JavaScript, reset). Suggestions are looked up on the device; nothing you type is sent until you
   search. Browser settings also appear in the main settings search.
+- Go browser, more: a live network speed indicator in the top bar (whole-device download and
+  upload speed); the tabs drawer shows normal and private tab counts, device RAM in use and the
+  navigation buttons at the top; switching tabs flashes the tab position (for example "3/5") and
+  swiping the address box supports flings with haptic feedback; tapping the empty Private box
+  opens a new private tab.
+- Go browser videos: smarter detection (players hidden in pages, HLS/DASH playlists loaded by
+  scripts) with a detection log and explanations for streams that can't be played; videos are
+  named after the page title without site branding; the found-videos list shows resolution,
+  size (estimated for streams) and type; an option stops site autoplay videos until tapped; the
+  video button can be dragged and snaps to the screen edge. Videos opened in mpvGo start in a
+  small Picture-in-Picture window over the browser (or full screen, in settings).
+- Go browser: site icons on the start page and in the tabs drawer; a user agent choice (Phone,
+  Tablet, Desktop or Custom), also per site in site settings.
+- Ad blocking: more filter lists (uBlock Badware, Privacy, Unbreak and Quick fixes, Brave
+  Unbreak, IndianList, AdGuard Mobile), YouTube ad removal and skipping, advanced element hiding
+  rules, and "Report ads on this site" in site settings.
+- Player: stream quality picker for online streams (HLS/DASH variants), with an Auto option and
+  a preferred quality setting.
+- Player: online subtitle search (OpenSubtitles, SubDL and Podnapisi) with language filters,
+  ratings and exact-match badges; subtitles load straight into the player.
 - adblock-rust (MPL-2.0) is listed under Open source licences.
 - Downloads from the browser: when a page has a video, the Ask popup offers Download as well as
   Play. The found-videos sheet shows a quality choice for streams, marks videos you have already
@@ -115,6 +99,11 @@ that plays web videos in mpvGo, and a download manager.
   (new "Gestures" section at the end). The saved setting is kept.
 
 ### Fixed
+- Picture-in-Picture: the PiP window no longer disappears when you leave the app
+  ([#681](https://github.com/marlboro-advance/mpvEx/issues/681)), the video stops when PiP is
+  closed ([#762](https://github.com/marlboro-advance/mpvEx/issues/762)), and devices without
+  PiP support no longer hang when entering it
+  ([#736](https://github.com/marlboro-advance/mpvEx/issues/736)).
 - Browser: the list of videos found on a page now clears when you type a new address.
 - Subtitle gestures: a short drag on the subtitle while the controls were hidden also counted
   as a tap and brought up the controls, which lifted the subtitle away from the finger. A touch
