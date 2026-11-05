@@ -1,7 +1,11 @@
 package app.arju.mpvgo.webbrowser.ui
 
+import android.app.ActivityManager
+import android.content.Context
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,9 +13,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -37,23 +43,37 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.arju.mpvgo.webbrowser.adblock.SiteMatcher
 import app.arju.mpvgo.webbrowser.core.BrowserTab
 import app.arju.mpvgo.webbrowser.core.SiteChoice
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.round
 
 @Composable
 fun TabsDrawer(
@@ -81,50 +101,165 @@ fun TabsDrawer(
     modifier = Modifier.width(320.dp),
   ) {
     Column(Modifier.fillMaxHeight().statusBarsPadding().navigationBarsPadding()) {
-      Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        val segColors =
-          if (showPrivate) {
-            SegmentedButtonDefaults.colors(
-              inactiveContainerColor = PrivateColors.background,
-              inactiveContentColor = PrivateColors.content,
-              inactiveBorderColor = PrivateColors.muted,
-              activeBorderColor = PrivateColors.muted,
-            )
-          } else {
-            SegmentedButtonDefaults.colors()
+      val context = LocalContext.current
+      var memInfo by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+      LaunchedEffect(Unit) {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        val mi = ActivityManager.MemoryInfo()
+        while (isActive) {
+          am?.getMemoryInfo(mi)
+          if (mi.totalMem > 0L) {
+            memInfo = Pair(mi.totalMem - mi.availMem, mi.totalMem)
           }
-        val normalActiveIndex = normal.indexOfFirst { it.id == activeId }
-        val normalLabel = if (normalActiveIndex >= 0 && normal.isNotEmpty()) {
-          "Tabs ${normalActiveIndex + 1}/${normal.size}"
-        } else {
-          "Tabs ${normal.size}"
+          delay(2000)
         }
-        val privateActiveIndex = private.indexOfFirst { it.id == activeId }
-        val privateLabel = if (privateActiveIndex >= 0 && private.isNotEmpty()) {
-          "Private ${privateActiveIndex + 1}/${private.size}"
+      }
+
+      Row(
+        Modifier
+          .fillMaxWidth()
+          .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        // Normal tabs button
+        val normalBg = if (!showPrivate) {
+          if (showPrivate) Color(0xFF3B2A66) else Color(0xFF4A4458)
         } else {
-          "Private ${private.size}"
+          Color.Transparent
         }
-        SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
-          SegmentedButton(
-            selected = !showPrivate,
-            onClick = { onShowPrivate(false) },
-            shape = SegmentedButtonDefaults.itemShape(0, 2),
-            colors = segColors,
-          ) { Text(normalLabel) }
-          SegmentedButton(
-            selected = showPrivate,
-            onClick = {
+        Box(
+          modifier = Modifier
+            .size(40.dp)
+            .background(normalBg, RoundedCornerShape(10.dp))
+            .clickable { onShowPrivate(false) },
+          contentAlignment = Alignment.Center,
+        ) {
+          Box(
+            modifier = Modifier
+              .size(24.dp)
+              .border(
+                width = 2.dp,
+                color = if (showPrivate) Color(0xFFE6E0E9) else MaterialTheme.colorScheme.onSurface,
+                shape = RoundedCornerShape(6.dp),
+              ),
+            contentAlignment = Alignment.Center,
+          ) {
+            Text(
+              text = "${normal.size}",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+              color = if (showPrivate) Color(0xFFE6E0E9) else MaterialTheme.colorScheme.onSurface,
+            )
+          }
+        }
+
+        Spacer(Modifier.width(4.dp))
+
+        // Private tabs button
+        val privateBg = if (showPrivate) Color(0xFF3B2A66) else Color.Transparent
+        Box(
+          modifier = Modifier
+            .size(40.dp)
+            .background(privateBg, RoundedCornerShape(10.dp))
+            .clickable {
               if (private.isEmpty()) {
                 onNewPrivateTab()
               } else {
                 onShowPrivate(true)
               }
             },
-            shape = SegmentedButtonDefaults.itemShape(1, 2),
-            colors = segColors,
-          ) { Text(privateLabel) }
+          contentAlignment = Alignment.Center,
+        ) {
+          Box(
+            modifier = Modifier.size(24.dp),
+            contentAlignment = Alignment.Center,
+          ) {
+            Canvas(Modifier.fillMaxSize()) {
+              drawRoundRect(
+                color = Color(0xFFC9B6FF),
+                style = Stroke(
+                  width = 2.dp.toPx(),
+                  pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()), 0f),
+                ),
+                cornerRadius = CornerRadius(6.dp.toPx(), 6.dp.toPx()),
+              )
+            }
+            Text(
+              text = "\uD83D\uDD76",
+              style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+              modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = (-9).dp),
+            )
+            Text(
+              text = "${private.size}",
+              style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+              color = Color(0xFFC9B6FF),
+            )
+          }
         }
+
+        Spacer(Modifier.width(6.dp))
+
+        // RAM Indicator
+        Column(
+          modifier = Modifier
+            .weight(1f)
+            .padding(horizontal = 4.dp),
+        ) {
+          val (usedBytes, totalBytes) = memInfo ?: Pair(0L, 0L)
+          val usedGb = usedBytes.toDouble() / (1024 * 1024 * 1024)
+          val totalGb = totalBytes.toDouble() / (1024 * 1024 * 1024)
+          val freeGb = (totalBytes - usedBytes).coerceAtLeast(0L).toDouble() / (1024 * 1024 * 1024)
+          val usedFraction = if (totalBytes > 0) (usedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f) else 0f
+          val totalDisplay = if (abs(totalGb - round(totalGb)) < 0.25) {
+            String.format(Locale.US, "%.0f", totalGb)
+          } else {
+            String.format(Locale.US, "%.1f", totalGb)
+          }
+          val usedTotalText = if (totalBytes > 0) {
+            String.format(Locale.US, "%.1f / %s GB", usedGb, totalDisplay)
+          } else {
+            "-- / -- GB"
+          }
+          val freeText = if (totalBytes > 0) {
+            String.format(Locale.US, "%.1f GB free", freeGb)
+          } else {
+            ""
+          }
+
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+          ) {
+            Text("RAM", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Color(0xFFCAC4D0))
+            Text(usedTotalText, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Color(0xFFCAC4D0))
+          }
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(top = 4.dp)
+              .height(6.dp)
+              .clip(RoundedCornerShape(3.dp))
+              .background(Color(0xFF49454F)),
+          ) {
+            Box(
+              modifier = Modifier
+                .fillMaxWidth(fraction = usedFraction)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color(0xFFD0BCFF)),
+            )
+          }
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(top = 2.dp),
+            horizontalArrangement = Arrangement.End,
+          ) {
+            Text(freeText, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Color(0xFFCAC4D0))
+          }
+        }
+
         IconButton(enabled = list.isNotEmpty(), onClick = onCloseAll) {
           Icon(Icons.Filled.DeleteSweep, if (showPrivate) "Close all private tabs" else "Close all tabs")
         }

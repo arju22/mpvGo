@@ -10,9 +10,10 @@ This file is updated with every batch of changes and before every release push.
 ## [Unreleased]
 
 ### Added
-- Browser: tab position indicator (e.g. "Tabs 3/5") in the tabs drawer and a brief position flash on the top bar tabs button when switching tabs.
-- Browser: address bar tab switching now supports fling gestures, provides light haptic feedback, and bounces when reaching the first or last tab.
-- Browser: tapping the Private segment in the tabs drawer when there are no private tabs directly creates a new private tab and focuses the address bar with the keyboard.
+- Browser: compact tab count switch and live device RAM indicator (used / total and free GB) in the tabs drawer header (#18).
+- Browser: brief tab position flash (e.g. "3/5") on the top bar tabs button when switching tabs (#4).
+- Browser: address bar tab switching now supports fling gestures, provides light haptic feedback, and bounces when reaching the first or last tab (#2).
+- Browser: tapping the Private box in the tabs drawer when there are no private tabs directly creates a new private tab and focuses the address bar with the keyboard (#5).
 
 ### Changed
 - Browser: opening the tabs panel by swiping from the left edge is now off by default to avoid accidental triggers with system back navigation and web sliders. It can still be turned on in Settings › Browser › Gestures.
