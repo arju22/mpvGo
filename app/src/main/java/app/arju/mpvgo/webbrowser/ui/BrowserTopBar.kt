@@ -1,5 +1,6 @@
 package app.arju.mpvgo.webbrowser.ui
 
+import android.net.TrafficStats
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -12,6 +13,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -44,6 +46,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
@@ -72,6 +75,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -83,6 +88,7 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -90,11 +96,14 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.arju.mpvgo.webbrowser.core.TopBarButton
 import app.arju.mpvgo.webbrowser.core.UrlSuggestion
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /** Everything the browser chrome can ask the screen to do. */
@@ -203,6 +212,8 @@ fun BrowserTopBar(
             )
             state.buttons.forEach { button ->
               when (button) {
+                TopBarButton.NET_SPEED ->
+                  NetworkSpeedPill(isPrivate = state.isPrivate)
                 TopBarButton.DOWNLOADS ->
                   IconButton(onClick = { onAction(BrowserAction.DOWNLOADS) }) {
                     BadgedBox(badge = { if (state.activeDownloads > 0) Badge { Text("${state.activeDownloads}") } }) {
@@ -285,6 +296,7 @@ private fun SuggestionRow(
 
 fun TopBarButton.action(): BrowserAction =
   when (this) {
+    TopBarButton.NET_SPEED -> BrowserAction.SETTINGS
     TopBarButton.BOOKMARKS -> BrowserAction.BOOKMARKS
     TopBarButton.DOWNLOADS -> BrowserAction.DOWNLOADS
     TopBarButton.AD_BLOCK -> BrowserAction.SITE_SETTINGS
@@ -299,6 +311,7 @@ fun TopBarButton.action(): BrowserAction =
 
 fun TopBarButton.icon(): ImageVector =
   when (this) {
+    TopBarButton.NET_SPEED -> Icons.Filled.Speed
     TopBarButton.BOOKMARKS -> Icons.Filled.Bookmarks
     TopBarButton.DOWNLOADS -> Icons.Filled.Download
     TopBarButton.AD_BLOCK -> Icons.Filled.Shield
@@ -526,11 +539,10 @@ private fun OverflowMenu(
           }
         }
         IconButton(enabled = state.url.isNotEmpty(), onClick = { pick(BrowserAction.SHARE) }) { Icon(Icons.Filled.Share, "Share") }
-        IconButton(onClick = { pick(BrowserAction.NEW_TAB) }) { Icon(Icons.Filled.Add, "New tab") }
+        IconButton(onClick = { pick(BrowserAction.BOOKMARKS) }) { Icon(Icons.Filled.Bookmarks, "Bookmarks") }
       }
       HorizontalDivider()
       MenuItem("New private tab", Icons.Filled.VisibilityOff) { pick(BrowserAction.NEW_PRIVATE_TAB) }
-      MenuItem("Bookmarks", Icons.Filled.Bookmarks) { pick(BrowserAction.BOOKMARKS) }
       MenuItem("History", Icons.Filled.History) { pick(BrowserAction.HISTORY) }
       MenuItem(
         if (state.activeDownloads > 0) "Downloads (${state.activeDownloads})" else "Downloads",
@@ -606,6 +618,151 @@ fun FindBar(
       }
       IconButton(enabled = matches.second > 0, onClick = { onNext(false) }) { Icon(Icons.Filled.KeyboardArrowUp, "Previous") }
       IconButton(enabled = matches.second > 0, onClick = { onNext(true) }) { Icon(Icons.Filled.KeyboardArrowDown, "Next") }
+    }
+  }
+}
+
+internal fun formatRate(bytesPerSec: Long): Pair<String, String> {
+  if (bytesPerSec <= 0L) return Pair("0", "B/s")
+  val b = bytesPerSec.toDouble()
+  val kb = 1024.0
+  val mb = 1024.0 * 1024.0
+  val gb = 1024.0 * 1024.0 * 1024.0
+
+  val (value, unit) = when {
+    b >= gb -> Pair(b / gb, "GB/s")
+    b >= mb -> Pair(b / mb, "MB/s")
+    b >= kb -> Pair(b / kb, "KB/s")
+    else -> return Pair(bytesPerSec.toString(), "B/s")
+  }
+
+  val formatted = when {
+    value >= 100.0 -> String.format(Locale.US, "%.0f", value)
+    value >= 10.0 -> {
+      val s = String.format(Locale.US, "%.1f", value)
+      if (s.endsWith(".0")) s.substringBefore(".0") else s
+    }
+    else -> {
+      val s = String.format(Locale.US, "%.2f", value)
+      if (s.contains('.')) s.trimEnd('0').trimEnd('.') else s
+    }
+  }
+  return Pair(formatted, unit)
+}
+
+@Composable
+fun NetworkSpeedPill(
+  isPrivate: Boolean,
+  modifier: Modifier = Modifier,
+) {
+  var lastRx by remember { mutableStateOf(-1L) }
+  var lastTx by remember { mutableStateOf(-1L) }
+  var rxSpeed by remember { mutableStateOf(0L) }
+  var txSpeed by remember { mutableStateOf(0L) }
+
+  LaunchedEffect(Unit) {
+    lastRx = TrafficStats.getTotalRxBytes()
+    lastTx = TrafficStats.getTotalTxBytes()
+    while (isActive) {
+      delay(1000)
+      val curRx = TrafficStats.getTotalRxBytes()
+      val curTx = TrafficStats.getTotalTxBytes()
+      if (lastRx >= 0L && curRx >= lastRx) {
+        rxSpeed = curRx - lastRx
+      }
+      if (lastTx >= 0L && curTx >= lastTx) {
+        txSpeed = curTx - lastTx
+      }
+      lastRx = curRx
+      lastTx = curTx
+    }
+  }
+
+  val isIdle = rxSpeed == 0L && txSpeed == 0L
+  val (rxVal, rxUnit) = formatRate(rxSpeed)
+  val (txVal, txUnit) = formatRate(txSpeed)
+
+  val bg = if (isPrivate) Color(0xFF3B2A66) else Color(0xFF3B3546)
+  val contentColor = Color(0xFFE6E0E9)
+  val arrowColor = Color(0xFF938F99)
+  val unitColor = Color(0xFFA49DAE)
+
+  Box(
+    modifier = modifier
+      .padding(horizontal = 2.dp)
+      .clip(RoundedCornerShape(10.dp))
+      .background(bg)
+      .alpha(if (isIdle) 0.5f else 1f)
+      .padding(horizontal = 6.dp, vertical = 3.dp),
+    contentAlignment = Alignment.Center,
+  ) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+          "▼",
+          style = TextStyle(
+            fontSize = 7.sp,
+            color = arrowColor,
+            lineHeight = 9.sp,
+          ),
+        )
+        Text(
+          "▲",
+          style = TextStyle(
+            fontSize = 7.sp,
+            color = arrowColor,
+            lineHeight = 9.sp,
+          ),
+        )
+      }
+      Spacer(Modifier.width(3.dp))
+      Column(horizontalAlignment = Alignment.End) {
+        Text(
+          rxVal,
+          style = TextStyle(
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = contentColor,
+            fontFeatureSettings = "tnum",
+            lineHeight = 13.sp,
+          ),
+        )
+        Text(
+          txVal,
+          style = TextStyle(
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = contentColor,
+            fontFeatureSettings = "tnum",
+            lineHeight = 13.sp,
+          ),
+        )
+      }
+      Spacer(Modifier.width(2.dp))
+      Column(horizontalAlignment = Alignment.Start) {
+        Text(
+          rxUnit,
+          style = TextStyle(
+            fontSize = 7.sp,
+            fontWeight = FontWeight.Medium,
+            color = unitColor,
+            letterSpacing = 0.1.sp,
+            lineHeight = 9.sp,
+          ),
+        )
+        Text(
+          txUnit,
+          style = TextStyle(
+            fontSize = 7.sp,
+            fontWeight = FontWeight.Medium,
+            color = unitColor,
+            letterSpacing = 0.1.sp,
+            lineHeight = 9.sp,
+          ),
+        )
+      }
     }
   }
 }

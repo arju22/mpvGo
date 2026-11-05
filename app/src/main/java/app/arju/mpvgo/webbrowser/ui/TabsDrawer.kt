@@ -209,7 +209,6 @@ fun TabsDrawer(
           val (usedBytes, totalBytes) = memInfo ?: Pair(0L, 0L)
           val usedGb = usedBytes.toDouble() / (1024 * 1024 * 1024)
           val totalGb = totalBytes.toDouble() / (1024 * 1024 * 1024)
-          val freeGb = (totalBytes - usedBytes).coerceAtLeast(0L).toDouble() / (1024 * 1024 * 1024)
           val usedFraction = if (totalBytes > 0) (usedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f) else 0f
           val totalDisplay = if (abs(totalGb - round(totalGb)) < 0.25) {
             String.format(Locale.US, "%.0f", totalGb)
@@ -220,11 +219,6 @@ fun TabsDrawer(
             String.format(Locale.US, "%.1f / %s GB", usedGb, totalDisplay)
           } else {
             "-- / -- GB"
-          }
-          val freeText = if (totalBytes > 0) {
-            String.format(Locale.US, "%.1f GB free", freeGb)
-          } else {
-            ""
           }
 
           Row(
@@ -250,20 +244,65 @@ fun TabsDrawer(
                 .background(Color(0xFFD0BCFF)),
             )
           }
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(top = 2.dp),
-            horizontalArrangement = Arrangement.End,
-          ) {
-            Text(freeText, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = Color(0xFFCAC4D0))
-          }
         }
 
         IconButton(enabled = list.isNotEmpty(), onClick = onCloseAll) {
           Icon(Icons.Filled.DeleteSweep, if (showPrivate) "Close all private tabs" else "Close all tabs")
         }
       }
+
+      // Navigation row under drawer header
+      Row(
+        Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 8.dp)
+          .height(52.dp)
+          .clip(RoundedCornerShape(12.dp))
+          .background(if (showPrivate) Color(0xFF28194A) else Color(0xFF2B2930)),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        IconButton(onClick = onExit, modifier = Modifier.size(44.dp)) {
+          Icon(
+            Icons.AutoMirrored.Filled.ExitToApp,
+            "Close browser",
+            tint = if (showPrivate) PrivateColors.content else MaterialTheme.colorScheme.onSurface,
+          )
+        }
+        IconButton(enabled = canGoBack, onClick = onBack, modifier = Modifier.size(44.dp)) {
+          Icon(
+            Icons.AutoMirrored.Filled.ArrowBack,
+            "Back",
+            tint = if (showPrivate) PrivateColors.content else MaterialTheme.colorScheme.onSurface,
+          )
+        }
+        IconButton(onClick = onHome, modifier = Modifier.size(44.dp)) {
+          Icon(
+            Icons.Filled.Home,
+            "Home",
+            tint = if (showPrivate) PrivateColors.content else MaterialTheme.colorScheme.onSurface,
+          )
+        }
+        IconButton(enabled = canGoForward, onClick = onForward, modifier = Modifier.size(44.dp)) {
+          Icon(
+            Icons.AutoMirrored.Filled.ArrowForward,
+            "Forward",
+            tint = if (showPrivate) PrivateColors.content else MaterialTheme.colorScheme.onSurface,
+          )
+        }
+        IconButton(
+          onClick = { if (showPrivate) onNewPrivateTab() else onNewTab() },
+          modifier = Modifier.size(44.dp),
+        ) {
+          Icon(
+            Icons.Filled.Add,
+            if (showPrivate) "New private tab" else "New tab",
+            tint = if (showPrivate) PrivateColors.accent else MaterialTheme.colorScheme.onSurface,
+          )
+        }
+      }
+      Spacer(Modifier.height(6.dp))
+
       if (showPrivate) {
         Text(
           "History, cookies and site data are deleted when you close private tabs.",
@@ -279,7 +318,7 @@ fun TabsDrawer(
           listState.scrollToItem(idx)
         }
       }
-      LazyColumn(state = listState, modifier = Modifier.weight(1f).padding(top = 8.dp)) {
+      LazyColumn(state = listState, modifier = Modifier.weight(1f).padding(top = 4.dp)) {
         itemsIndexed(list, key = { _, tab -> tab.id }) { index, tab ->
           TabRow(tab, tab.id == activeId, showPrivate, index, list.size, { onSelect(tab) }, { onClose(tab) })
         }
@@ -291,24 +330,6 @@ fun TabsDrawer(
               modifier = Modifier.padding(24.dp),
             )
           }
-        }
-      }
-      HorizontalDivider()
-      Row(
-        Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        IconButton(onClick = onExit, modifier = Modifier.size(52.dp)) { Icon(Icons.AutoMirrored.Filled.ExitToApp, "Close browser") }
-        IconButton(enabled = canGoBack, onClick = onBack, modifier = Modifier.size(52.dp)) {
-          Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-        }
-        IconButton(onClick = onHome, modifier = Modifier.size(52.dp)) { Icon(Icons.Filled.Home, "Home") }
-        IconButton(enabled = canGoForward, onClick = onForward, modifier = Modifier.size(52.dp)) {
-          Icon(Icons.AutoMirrored.Filled.ArrowForward, "Forward")
-        }
-        IconButton(onClick = onNewTab, modifier = Modifier.size(52.dp)) {
-          Icon(Icons.Filled.Add, if (showPrivate) "New private tab" else "New tab")
         }
       }
     }
@@ -393,7 +414,7 @@ fun SiteSettingsContent(
     SwitchRow("Block pop-ups (all sites)", blockPopups, onBlockPopups)
     Spacer(Modifier.height(8.dp))
     Text("When I tap a video", style = MaterialTheme.typography.titleSmall)
-    listOf(null to "Ask me", SiteChoice.MPVGO to "Play in mpvGo", SiteChoice.WEB to "Play on the page").forEach { (choice, label) ->
+    listOf(null to "Play in browser (default)", SiteChoice.MPVGO to "Play in mpvGo", SiteChoice.ASK to "Ask me").forEach { (choice, label) ->
       Row(
         Modifier.fillMaxWidth().selectable(videoChoice == choice, role = Role.RadioButton) { onVideoChoice(choice) },
         verticalAlignment = Alignment.CenterVertically,

@@ -28,6 +28,7 @@ enum class SearchEngine(
 }
 
 enum class TopBarButton(val label: String, val summary: String) {
+  NET_SPEED("Network speed", "Live download and upload rate"),
   BOOKMARKS("Bookmarks", "Opens your bookmarks"),
   DOWNLOADS("Downloads", "Shows running count"),
   AD_BLOCK("Ad block", "Shows blocked count"),

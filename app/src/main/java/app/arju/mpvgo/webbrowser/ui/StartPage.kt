@@ -70,6 +70,7 @@ object PrivateColors {
   val surface = Color(0xFF2C2540)
   val content = Color(0xFFEDE7F6)
   val muted = Color(0xFFB8AED0)
+  val accent = Color(0xFFD0BCFF)
 }
 
 @Composable

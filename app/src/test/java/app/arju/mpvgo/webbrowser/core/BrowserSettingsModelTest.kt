@@ -69,6 +69,20 @@ class BrowserSettingsModelTest {
   }
 
   @Test
+  fun `formatRate formats network speeds correctly with 3 significant digits`() {
+    assertEquals(Pair("0", "B/s"), app.arju.mpvgo.webbrowser.ui.formatRate(0L))
+    assertEquals(Pair("860", "B/s"), app.arju.mpvgo.webbrowser.ui.formatRate(860L))
+    assertEquals(Pair("120", "B/s"), app.arju.mpvgo.webbrowser.ui.formatRate(120L))
+    assertEquals(Pair("512", "KB/s"), app.arju.mpvgo.webbrowser.ui.formatRate(512L * 1024L))
+    assertEquals(Pair("12", "KB/s"), app.arju.mpvgo.webbrowser.ui.formatRate(12L * 1024L))
+    assertEquals(Pair("38", "KB/s"), app.arju.mpvgo.webbrowser.ui.formatRate(38L * 1024L))
+    assertEquals(Pair("2.4", "MB/s"), app.arju.mpvgo.webbrowser.ui.formatRate((2.4 * 1024.0 * 1024.0).toLong()))
+    assertEquals(Pair("48.6", "MB/s"), app.arju.mpvgo.webbrowser.ui.formatRate((48.6 * 1024.0 * 1024.0).toLong()))
+    assertEquals(Pair("1.05", "GB/s"), app.arju.mpvgo.webbrowser.ui.formatRate((1.05 * 1024.0 * 1024.0 * 1024.0).toLong()))
+    assertEquals(Pair("96", "MB/s"), app.arju.mpvgo.webbrowser.ui.formatRate(96L * 1024L * 1024L))
+  }
+
+  @Test
   fun `settings search matches titles, pages and keywords`() {
     assertTrue(BrowserSettingsIndex.search("  ").isEmpty())
     assertEquals(listOf("Always use secure connections"), BrowserSettingsIndex.search("https").map { it.title })
