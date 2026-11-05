@@ -400,7 +400,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
     val rootColor = if (isPrivate) PrivateColors.background else MaterialTheme.colorScheme.surface
     ModalNavigationDrawer(
       drawerState = drawer,
-      gesturesEnabled = libraryPage == null && swipeTabsPanel,
+      gesturesEnabled = drawer.isOpen || drawer.targetValue == DrawerValue.Open || (libraryPage == null && swipeTabsPanel),
       drawerContent = {
         TabsDrawer(
           normal = tabList.filterNot { it.isPrivate },

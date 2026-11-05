@@ -48,7 +48,7 @@ class BrowserPreferences(store: PreferenceStore) {
   // Top bar & gestures
   val showTabCount = store.getBoolean("browser_show_tab_count", true)
   val swipeAddressBar = store.getBoolean("browser_swipe_address_bar", true)
-  val swipeTabsPanel = store.getBoolean("browser_swipe_tabs_panel", true)
+  val swipeTabsPanel = store.getBoolean("browser_swipe_tabs_panel", false)
 
   // Search
   val searchSuggestions = store.getBoolean("browser_search_suggestions", true)

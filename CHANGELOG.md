@@ -9,6 +9,12 @@ This file is updated with every batch of changes and before every release push.
 
 ## [Unreleased]
 
+### Changed
+- Browser: opening the tabs panel by swiping from the left edge is now off by default to avoid accidental triggers with system back navigation and web sliders. It can still be turned on in Settings › Browser › Gestures.
+
+### Fixed
+- Browser: tapping outside the open tabs drawer or swiping left to close it now always closes the drawer even when the swipe-to-open gesture is turned off.
+
 ## [1.1.0] - 2026-10-28
 
 This release adds the Go browser: a built-in web browser with ad blocking, video detection
