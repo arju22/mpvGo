@@ -134,4 +134,44 @@ class BrowserCoreTest {
     assertNull(TabNavigation.stepId(null, tabs, 1))
     assertNull(TabNavigation.stepId(101L, emptyList<Long>(), 1))
   }
+
+  @Test
+  fun `browser back action priority order`() {
+    assertEquals(
+      BrowserBackAction.Action.CLOSE_DRAWER,
+      BrowserBackAction.decide(drawerOpen = true, libraryOpen = true, mediaOpen = true, siteOpen = true, findOpen = true, fullscreenOpen = true, canGoBack = true, hasValidOpener = true),
+    )
+    assertEquals(
+      BrowserBackAction.Action.CLOSE_LIBRARY,
+      BrowserBackAction.decide(drawerOpen = false, libraryOpen = true, mediaOpen = true, siteOpen = true, findOpen = true, fullscreenOpen = true, canGoBack = true, hasValidOpener = true),
+    )
+    assertEquals(
+      BrowserBackAction.Action.CLOSE_MEDIA,
+      BrowserBackAction.decide(drawerOpen = false, libraryOpen = false, mediaOpen = true, siteOpen = true, findOpen = true, fullscreenOpen = true, canGoBack = true, hasValidOpener = true),
+    )
+    assertEquals(
+      BrowserBackAction.Action.CLOSE_SITE,
+      BrowserBackAction.decide(drawerOpen = false, libraryOpen = false, mediaOpen = false, siteOpen = true, findOpen = true, fullscreenOpen = true, canGoBack = true, hasValidOpener = true),
+    )
+    assertEquals(
+      BrowserBackAction.Action.CLOSE_FIND,
+      BrowserBackAction.decide(drawerOpen = false, libraryOpen = false, mediaOpen = false, siteOpen = false, findOpen = true, fullscreenOpen = true, canGoBack = true, hasValidOpener = true),
+    )
+    assertEquals(
+      BrowserBackAction.Action.CLOSE_FULLSCREEN,
+      BrowserBackAction.decide(drawerOpen = false, libraryOpen = false, mediaOpen = false, siteOpen = false, findOpen = false, fullscreenOpen = true, canGoBack = true, hasValidOpener = true),
+    )
+    assertEquals(
+      BrowserBackAction.Action.WEBVIEW_GO_BACK,
+      BrowserBackAction.decide(drawerOpen = false, libraryOpen = false, mediaOpen = false, siteOpen = false, findOpen = false, fullscreenOpen = false, canGoBack = true, hasValidOpener = true),
+    )
+    assertEquals(
+      BrowserBackAction.Action.CLOSE_TAB_TO_OPENER,
+      BrowserBackAction.decide(drawerOpen = false, libraryOpen = false, mediaOpen = false, siteOpen = false, findOpen = false, fullscreenOpen = false, canGoBack = false, hasValidOpener = true),
+    )
+    assertEquals(
+      BrowserBackAction.Action.EXIT_BROWSER,
+      BrowserBackAction.decide(drawerOpen = false, libraryOpen = false, mediaOpen = false, siteOpen = false, findOpen = false, fullscreenOpen = false, canGoBack = false, hasValidOpener = false),
+    )
+  }
 }

@@ -50,6 +50,42 @@ object TabNavigation {
   }
 }
 
+object BrowserBackAction {
+  enum class Action {
+    CLOSE_DRAWER,
+    CLOSE_LIBRARY,
+    CLOSE_MEDIA,
+    CLOSE_SITE,
+    CLOSE_FIND,
+    CLOSE_FULLSCREEN,
+    WEBVIEW_GO_BACK,
+    CLOSE_TAB_TO_OPENER,
+    EXIT_BROWSER,
+  }
+
+  fun decide(
+    drawerOpen: Boolean,
+    libraryOpen: Boolean,
+    mediaOpen: Boolean,
+    siteOpen: Boolean,
+    findOpen: Boolean,
+    fullscreenOpen: Boolean,
+    canGoBack: Boolean,
+    hasValidOpener: Boolean,
+  ): Action =
+    when {
+      drawerOpen -> Action.CLOSE_DRAWER
+      libraryOpen -> Action.CLOSE_LIBRARY
+      mediaOpen -> Action.CLOSE_MEDIA
+      siteOpen -> Action.CLOSE_SITE
+      findOpen -> Action.CLOSE_FIND
+      fullscreenOpen -> Action.CLOSE_FULLSCREEN
+      canGoBack -> Action.WEBVIEW_GO_BACK
+      hasValidOpener -> Action.CLOSE_TAB_TO_OPENER
+      else -> Action.EXIT_BROWSER
+    }
+}
+
 /**
  * Owns all browser tabs and their WebViews. Lives as an app singleton, so tabs survive leaving
  * the browser screen; WebViews are re-parented into whichever Activity shows them.
@@ -264,7 +300,11 @@ class TabManager(
     tab._hibernated.value = false
     val saved = tab.savedState
     tab.savedState = null
-    if (saved != null && view.restoreState(saved) != null) return view
+    if (saved != null && view.restoreState(saved) != null) {
+      tab._canGoBack.value = view.canGoBack()
+      tab._canGoForward.value = view.canGoForward()
+      return view
+    }
     tab.url.value.takeIf { it.isNotBlank() }?.let { factory.load(view, it) }
     return view
   }

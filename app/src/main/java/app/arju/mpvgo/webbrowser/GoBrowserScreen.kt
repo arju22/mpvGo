@@ -85,6 +85,7 @@ import app.arju.mpvgo.downloader.ui.DownloadDraft
 import app.arju.mpvgo.downloader.ui.DownloadPlayback
 import app.arju.mpvgo.downloader.ui.DownloadRequests
 import app.arju.mpvgo.downloader.ui.toNewDownload
+import app.arju.mpvgo.webbrowser.core.BrowserBackAction
 import app.arju.mpvgo.webbrowser.core.BrowserDownloads
 import app.arju.mpvgo.webbrowser.core.LinkRefresh
 import app.arju.mpvgo.webbrowser.core.VideoTapMode
@@ -290,6 +291,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
 
     fun newTab(private: Boolean) {
       closeFind()
+      drawerPrivate = private
       tabs.newTab(private = private)
     }
 
@@ -302,13 +304,33 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
     // Home pauses the WebView; resume it once the tab shows a page again (load, Back, Forward).
     LaunchedEffect(webView, startPage) { if (!startPage) webView?.onResume() }
 
+    LaunchedEffect(drawer.targetValue) {
+      if (drawer.targetValue == DrawerValue.Open) {
+        drawerPrivate = (tabs.active ?: tab)?.isPrivate == true
+      }
+    }
+
+    val hasValidOpener = tab?.openerId != null && tabList.any { it.id == tab.openerId }
     BackHandler {
-      when {
-        drawer.isOpen -> scope.launch { drawer.close() }
-        finding -> closeFind()
-        fullscreen != null -> fullscreen?.second?.onCustomViewHidden()
-        canGoBack -> webView?.goBack()
-        else -> exitBrowser()
+      when (BrowserBackAction.decide(
+        drawerOpen = drawer.isOpen,
+        libraryOpen = libraryPage != null,
+        mediaOpen = showMedia,
+        siteOpen = showSite,
+        findOpen = finding,
+        fullscreenOpen = fullscreen != null,
+        canGoBack = canGoBack,
+        hasValidOpener = hasValidOpener,
+      )) {
+        BrowserBackAction.Action.CLOSE_DRAWER -> scope.launch { drawer.close() }
+        BrowserBackAction.Action.CLOSE_LIBRARY -> libraryPage = null
+        BrowserBackAction.Action.CLOSE_MEDIA -> showMedia = false
+        BrowserBackAction.Action.CLOSE_SITE -> showSite = false
+        BrowserBackAction.Action.CLOSE_FIND -> closeFind()
+        BrowserBackAction.Action.CLOSE_FULLSCREEN -> fullscreen?.second?.onCustomViewHidden()
+        BrowserBackAction.Action.WEBVIEW_GO_BACK -> webView?.goBack()
+        BrowserBackAction.Action.CLOSE_TAB_TO_OPENER -> tab?.let { tabs.close(it.id) }
+        BrowserBackAction.Action.EXIT_BROWSER -> exitBrowser()
       }
     }
 
@@ -333,7 +355,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
     }
 
     fun onAction(action: BrowserAction) {
-      val t = tab ?: return
+      val t = tabs.active ?: tab ?: return
       when (action) {
         BrowserAction.TABS -> {
           drawerPrivate = t.isPrivate
@@ -410,13 +432,28 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
           canGoBack = canGoBack,
           canGoForward = canGoForward,
           onShowPrivate = { drawerPrivate = it },
+          onNewPrivateTab = {
+            newTab(private = true)
+            editRequest++
+            scope.launch { drawer.close() }
+          },
           onSelect = {
             closeFind()
             tabs.select(it.id)
             scope.launch { drawer.close() }
           },
-          onClose = { tabs.close(it.id) },
-          onCloseAll = { tabs.closeAll(drawerPrivate) },
+          onClose = { tabToClose ->
+            tabs.close(tabToClose.id)
+            if (drawerPrivate && tabList.none { it.id != tabToClose.id && it.isPrivate }) {
+              drawerPrivate = false
+            }
+          },
+          onCloseAll = {
+            tabs.closeAll(drawerPrivate)
+            if (drawerPrivate) {
+              drawerPrivate = false
+            }
+          },
           onExit = ::exitBrowser,
           onBack = { webView?.goBack() },
           onHome = {
@@ -509,7 +546,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
               }
               if (!startPage && swipeTabsPanel) {
                 LeftEdgeSwipe(Modifier.align(Alignment.CenterStart)) {
-                  drawerPrivate = tab.isPrivate
+                  drawerPrivate = (tabs.active ?: tab).isPrivate
                   scope.launch { drawer.open() }
                 }
               }

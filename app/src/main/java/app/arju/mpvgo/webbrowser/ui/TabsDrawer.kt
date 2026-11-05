@@ -72,6 +72,7 @@ fun TabsDrawer(
   onHome: () -> Unit,
   onForward: () -> Unit,
   onNewTab: () -> Unit,
+  onNewPrivateTab: () -> Unit = onNewTab,
 ) {
   val list = if (showPrivate) private else normal
   ModalDrawerSheet(
@@ -113,7 +114,13 @@ fun TabsDrawer(
           ) { Text(normalLabel) }
           SegmentedButton(
             selected = showPrivate,
-            onClick = { onShowPrivate(true) },
+            onClick = {
+              if (private.isEmpty()) {
+                onNewPrivateTab()
+              } else {
+                onShowPrivate(true)
+              }
+            },
             shape = SegmentedButtonDefaults.itemShape(1, 2),
             colors = segColors,
           ) { Text(privateLabel) }
