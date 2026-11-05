@@ -127,6 +127,7 @@ fun PlayerSheets(
         onToggleSubtitle = onToggleSubtitle,
         isSubtitleSelected = isSubtitleSelected,
         onAddSubtitle = { showFilePicker = true },
+        onSearchOnline = { onShowSheet(Sheets.OnlineSubtitleSearch) },
         onRemoveSubtitle = onRemoveSubtitle,
         onOpenSubtitleSettings = { onOpenPanel(Panels.SubtitleSettings) },
         onOpenSubtitleDelay = { onOpenPanel(Panels.SubtitleDelay) },
@@ -297,6 +298,17 @@ fun PlayerSheets(
       app.arju.mpvgo.player.controls.components.sheets.QualitySheet(
         qualityState = qualityState,
         onSelectQuality = viewModel::selectQuality,
+        onDismissRequest = onDismissRequest,
+      )
+    }
+
+    Sheets.OnlineSubtitleSearch -> {
+      app.arju.mpvgo.player.controls.components.sheets.OnlineSubtitleSearchSheet(
+        mediaTitle = viewModel.currentMediaTitle,
+        filePath = viewModel.currentVideoPath,
+        onSubtitleLoaded = { uri ->
+          viewModel.addSubtitle(uri, select = true)
+        },
         onDismissRequest = onDismissRequest,
       )
     }

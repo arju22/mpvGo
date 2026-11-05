@@ -327,6 +327,7 @@ class PlayerViewModel(
 
   // Media title for subtitle association
   var currentMediaTitle: String = ""
+  val currentVideoPath: String? get() = MPVLib.getPropertyString("path")
   private var lastAutoSelectedMediaTitle: String? = null
 
   // External subtitle tracking

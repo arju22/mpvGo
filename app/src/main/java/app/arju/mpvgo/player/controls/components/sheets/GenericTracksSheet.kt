@@ -63,6 +63,7 @@ fun AddTrackRow(
   title: String,
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
+  icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.Add,
   actions: @Composable RowScope.() -> Unit = {},
 ) {
   Row(
@@ -76,7 +77,7 @@ fun AddTrackRow(
     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.smaller),
   ) {
     Icon(
-      Icons.Default.Add,
+      icon,
       contentDescription = null,
       modifier = Modifier.size(24.dp),
     )

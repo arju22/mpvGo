@@ -45,6 +45,16 @@ class SubtitlesPreferences(
   val pickerPath = preferenceStore.getString("sub_picker_path")
   
   val subtitleSaveFolder = preferenceStore.getString("sub_save_folder", "")
+
+  val onlineSearchEnabled = preferenceStore.getBoolean("sub_online_search_enabled", true)
+  val openSubtitlesApiKey = preferenceStore.getString("sub_opensubtitles_api_key", "")
+  val subDlApiKey = preferenceStore.getString("sub_subdl_api_key", "")
+  val openSubtitlesUser = preferenceStore.getString("sub_opensubtitles_username", "")
+  val openSubtitlesPass = preferenceStore.getString("sub_opensubtitles_password", "")
+  val autoDownloadExactMatch = preferenceStore.getBoolean("sub_auto_download_exact", false)
+  val providerOpenSubtitles = preferenceStore.getBoolean("sub_provider_opensubtitles", true)
+  val providerSubDL = preferenceStore.getBoolean("sub_provider_subdl", true)
+  val providerPodnapisi = preferenceStore.getBoolean("sub_provider_podnapisi", true)
 }
 
 enum class SubtitleJustification(

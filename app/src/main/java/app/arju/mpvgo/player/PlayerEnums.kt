@@ -102,6 +102,7 @@ enum class Sheets {
   Playlist,
   FrameNavigation,
   Quality,
+  OnlineSubtitleSearch,
 }
 
 enum class Panels {

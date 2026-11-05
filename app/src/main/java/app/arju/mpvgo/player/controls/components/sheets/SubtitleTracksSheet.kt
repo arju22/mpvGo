@@ -33,6 +33,7 @@ fun SubtitlesSheet(
   onOpenSubtitleDelay: () -> Unit,
   onRemoveSubtitle: (Int) -> Unit,
   onDismissRequest: () -> Unit,
+  onSearchOnline: (() -> Unit)? = null,
   modifier: Modifier = Modifier
 ) {
   val items = remember(tracks) {
@@ -58,6 +59,13 @@ fun SubtitlesSheet(
     tracks = items,
     onDismissRequest = onDismissRequest,
     header = {
+      if (onSearchOnline != null) {
+        AddTrackRow(
+          "Search online subtitles",
+          onSearchOnline,
+          icon = Icons.Default.CloudDownload,
+        )
+      }
       AddTrackRow(
         stringResource(R.string.player_sheets_add_ext_sub),
         onAddSubtitle,

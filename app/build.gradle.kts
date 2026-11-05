@@ -43,6 +43,15 @@ android {
 
     buildConfigField("String", "GIT_SHA", "\"${getCommitSha()}\"")
     buildConfigField("int", "GIT_COUNT", getCommitCount())
+
+    val localProps = Properties().apply {
+      val localFile = rootProject.file("local.properties")
+      if (localFile.exists()) localFile.inputStream().use { load(it) }
+    }
+    val openSubsKey = System.getenv("OPENSUBTITLES_API_KEY") ?: localProps.getProperty("OPENSUBTITLES_API_KEY", "")
+    val subDlKey = System.getenv("SUBDL_API_KEY") ?: localProps.getProperty("SUBDL_API_KEY", "")
+    buildConfigField("String", "OPENSUBTITLES_API_KEY", "\"$openSubsKey\"")
+    buildConfigField("String", "SUBDL_API_KEY", "\"$subDlKey\"")
   }
 
   flavorDimensions += "distribution"
