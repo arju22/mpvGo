@@ -8,8 +8,10 @@ import android.webkit.WebChromeClient
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +41,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -91,6 +94,7 @@ import app.arju.mpvgo.webbrowser.core.LinkRefresh
 import app.arju.mpvgo.webbrowser.core.VideoTapMode
 import app.arju.mpvgo.webbrowser.ui.AlreadyDownloadedDialog
 import app.arju.mpvgo.webbrowser.ui.CantDownloadDialog
+import app.arju.mpvgo.webbrowser.ui.DetectionLogDialog
 import app.arju.mpvgo.webbrowser.ui.FoundVideosSheet
 import app.arju.mpvgo.webbrowser.ui.LinkAction
 import app.arju.mpvgo.webbrowser.ui.LinkMenuSheet
@@ -170,6 +174,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
     var already by remember { mutableStateOf<Pair<DownloadEntity, DownloadDraft>?>(null) }
     var cantDownload by remember { mutableStateOf<String?>(null) }
     var linkMenu by remember { mutableStateOf<TabManager.Event.LinkMenu?>(null) }
+    var showDetectionLog by remember { mutableStateOf(false) }
 
     /** Every browser download goes through here: blocked sites, then "Already downloaded", then the sheet. */
     fun download(
@@ -551,7 +556,14 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
                 }
               }
               val showFab by prefs.floatingMediaButton.collectAsState()
-              if (showFab) MediaFab(tab, Modifier.align(Alignment.BottomEnd).padding(16.dp)) { showMedia = true }
+              if (showFab) {
+                MediaFab(
+                  tab = tab,
+                  modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                  onClick = { showMedia = true },
+                  onLongClick = { showDetectionLog = true },
+                )
+              }
             }
           }
         }
@@ -623,9 +635,13 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
 
     if (showMedia && tab != null) {
       val media by tab.sniffer.media.collectAsState()
+      val hasHidden by tab.sniffer.hasHiddenPlaylist.collectAsState()
+      val blobMse by tab.sniffer.blobMseDetected.collectAsState()
       FoundVideosSheet(
         host = SiteMatcher.host(tabUrl),
         media = media,
+        hasHiddenPlaylist = hasHidden,
+        blobMseDetected = blobMse,
         isDownloaded = { BrowserDownloads.findCompleted(downloads, it.url) != null },
         onPlay = {
           showMedia = false
@@ -651,6 +667,18 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
           showMedia = false
         },
         onDismiss = { showMedia = false },
+        onShowDetectionLog = {
+          showMedia = false
+          showDetectionLog = true
+        },
+      )
+    }
+
+    if (showDetectionLog && tab != null) {
+      val events by tab.sniffer.detectionLog.collectAsState()
+      DetectionLogDialog(
+        events = events,
+        onDismiss = { showDetectionLog = false },
       )
     }
 
@@ -817,15 +845,19 @@ private fun LeftEdgeSwipe(
   )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MediaFab(
   tab: BrowserTab,
   modifier: Modifier,
   onClick: () -> Unit,
+  onLongClick: () -> Unit,
 ) {
   val media by tab.sniffer.media.collectAsState()
+  val hasHidden by tab.sniffer.hasHiddenPlaylist.collectAsState()
+  val blobMse by tab.sniffer.blobMseDetected.collectAsState()
   val count = media.count { !it.audioOnly }
-  if (count == 0) return
+  if (count == 0 && !hasHidden && !blobMse) return
   val live by koinInject<DownloadManager>().live.collectAsState()
   val progress = BrowserDownloads.progress(live.values)
   val ringColor = MaterialTheme.colorScheme.primary
@@ -857,12 +889,29 @@ private fun MediaFab(
       }
     }
   Box(modifier.then(ring), contentAlignment = Alignment.Center) {
-    FloatingActionButton(
-      onClick = onClick,
-      containerColor = MaterialTheme.colorScheme.primaryContainer,
+    Surface(
+      shape = FloatingActionButtonDefaults.shape,
+      color = MaterialTheme.colorScheme.primaryContainer,
+      shadowElevation = 6.dp,
+      modifier = Modifier
+        .size(56.dp)
+        .combinedClickable(
+          onClick = onClick,
+          onLongClick = onLongClick,
+          onClickLabel = "Found videos",
+          onLongClickLabel = "Detection log",
+        ),
     ) {
-      BadgedBox(badge = { Badge { Text("$count") } }) {
-        Icon(Icons.Filled.SmartDisplay, if (count == 1) "1 video found" else "$count videos found")
+      Box(contentAlignment = Alignment.Center) {
+        if (count > 0) {
+          BadgedBox(badge = { Badge { Text("$count") } }) {
+            Icon(Icons.Filled.SmartDisplay, if (count == 1) "1 video found" else "$count videos found")
+          }
+        } else {
+          BadgedBox(badge = { Badge { Text("!") } }) {
+            Icon(Icons.Filled.SmartDisplay, "Video detected")
+          }
+        }
       }
     }
   }

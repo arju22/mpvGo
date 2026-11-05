@@ -14,11 +14,16 @@ This file is updated with every batch of changes and before every release push.
 - Browser: brief tab position flash (e.g. "3/5") on the top bar tabs button when switching tabs (#4).
 - Browser: address bar tab switching now supports fling gestures, provides light haptic feedback, and bounces when reaching the first or last tab (#2).
 - Browser: tapping the Private box in the tabs drawer when there are no private tabs directly creates a new private tab and focuses the address bar with the keyboard (#5).
+- Browser: layered video detection with capture-phase element listeners, DOM src observation, fetch/XHR content sniffing for HLS/DASH playlists, and detection log (#12).
+- Browser: explanation cards for hidden-playlist streams and DRM/MSE blob streams in the found videos sheet (#12).
+- Browser: option to stop site autoplay videos until tapped (Settings › Browser › Videos) (#10).
 
 ### Changed
 - Browser: opening the tabs panel by swiping from the left edge is now off by default to avoid accidental triggers with system back navigation and web sliders. It can still be turned on in Settings › Browser › Gestures.
 
 ### Fixed
+- Browser: autoplaying and background page videos no longer force-open mpvGo or show takeover dialogs; only user-initiated playback triggers takeover (#10).
+- Browser: muted, looping, and preview videos under 200px without controls are ignored for player takeover (#10).
 - Browser: swiping the address bar to switch tabs now tracks the current tab dynamically and switches reliably on every swipe.
 - Browser: tapping outside the open tabs drawer or swiping left to close it now always closes the drawer even when the swipe-to-open gesture is turned off.
 - Browser: pressing Back on a tab opened from a link or pop-up now closes the tab and returns to the opener tab before exiting the browser.

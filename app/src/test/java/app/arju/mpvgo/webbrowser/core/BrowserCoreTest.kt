@@ -50,16 +50,39 @@ class BrowserCoreTest {
   @Test
   fun `takeover decisions`() {
     val page = "https://site.example/watch"
-    val d = PlayTakeover::decide
-    assertEquals(PlayTakeover.Action.ASK, d(VideoTapMode.ASK_ONCE_PER_SITE, null, page, true, false))
-    assertEquals(PlayTakeover.Action.PLAY_IN_MPVGO, d(VideoTapMode.ASK_ONCE_PER_SITE, SiteChoice.MPVGO, page, true, false))
-    assertEquals(PlayTakeover.Action.ASK, d(VideoTapMode.ASK_ONCE_PER_SITE, SiteChoice.MPVGO, page, false, false))
-    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, d(VideoTapMode.ASK_ONCE_PER_SITE, SiteChoice.WEB, page, true, false))
-    assertEquals(PlayTakeover.Action.ASK, d(VideoTapMode.ALWAYS_ASK, SiteChoice.MPVGO, page, true, false))
-    assertEquals(PlayTakeover.Action.PLAY_IN_MPVGO, d(VideoTapMode.ALWAYS_MPVGO, null, page, true, false))
-    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, d(VideoTapMode.ALWAYS_WEB, SiteChoice.MPVGO, page, true, false))
-    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, d(VideoTapMode.ALWAYS_MPVGO, null, page, true, true))
-    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, d(VideoTapMode.ALWAYS_MPVGO, null, "https://www.youtube.com/watch", true, false))
+    assertEquals(PlayTakeover.Action.ASK, PlayTakeover.decide(VideoTapMode.ASK_ONCE_PER_SITE, null, page, true, false))
+    assertEquals(PlayTakeover.Action.PLAY_IN_MPVGO, PlayTakeover.decide(VideoTapMode.ASK_ONCE_PER_SITE, SiteChoice.MPVGO, page, true, false))
+    assertEquals(PlayTakeover.Action.ASK, PlayTakeover.decide(VideoTapMode.ASK_ONCE_PER_SITE, SiteChoice.MPVGO, page, false, false))
+    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ASK_ONCE_PER_SITE, SiteChoice.WEB, page, true, false))
+    assertEquals(PlayTakeover.Action.ASK, PlayTakeover.decide(VideoTapMode.ALWAYS_ASK, SiteChoice.MPVGO, page, true, false))
+    assertEquals(PlayTakeover.Action.PLAY_IN_MPVGO, PlayTakeover.decide(VideoTapMode.ALWAYS_MPVGO, null, page, true, false))
+    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ALWAYS_WEB, SiteChoice.MPVGO, page, true, false))
+    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ALWAYS_MPVGO, null, page, true, true))
+    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ALWAYS_MPVGO, null, "https://www.youtube.com/watch", true, false))
+
+    // Autoplay without user gesture always lets the page play
+    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ALWAYS_MPVGO, null, page, true, false, userGesture = false))
+    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ALWAYS_ASK, null, page, true, false, userGesture = false))
+    assertEquals(PlayTakeover.Action.LET_PAGE_PLAY, PlayTakeover.decide(VideoTapMode.ASK_ONCE_PER_SITE, SiteChoice.MPVGO, page, true, false, userGesture = false))
+  }
+
+  @Test
+  fun `ignores preview and background videos without controls`() {
+    assertTrue(PlayTakeover.shouldIgnoreVideo(muted = true, loop = false, controls = false, width = 640, height = 360))
+    assertTrue(PlayTakeover.shouldIgnoreVideo(muted = false, loop = true, controls = false, width = 640, height = 360))
+    assertTrue(PlayTakeover.shouldIgnoreVideo(muted = false, loop = false, controls = false, width = 120, height = 120))
+    assertFalse(PlayTakeover.shouldIgnoreVideo(muted = true, loop = false, controls = true, width = 640, height = 360))
+    assertFalse(PlayTakeover.shouldIgnoreVideo(muted = false, loop = false, controls = false, width = 640, height = 360))
+  }
+
+  @Test
+  fun `detects media segments`() {
+    assertTrue(MediaClassifier.isSegment("https://cdn.x/stream/seg-1.ts"))
+    assertTrue(MediaClassifier.isSegment("https://cdn.x/stream/chunk_0.m4s"))
+    assertTrue(MediaClassifier.isSegment("https://cdn.x/stream/data", accept = "video/mp2t"))
+    assertTrue(MediaClassifier.isSegment("https://cdn.x/stream/video.mp4", range = "bytes=0-1024"))
+    assertFalse(MediaClassifier.isSegment("https://cdn.x/stream/master.m3u8"))
+    assertFalse(MediaClassifier.isSegment("https://cdn.x/stream/movie.mp4"))
   }
 
   @Test

@@ -37,7 +37,7 @@ import java.io.ByteArrayInputStream
 
 /** What a [BrowserTab]'s WebView needs from its owner. */
 internal interface TabHost {
-  fun onPlay(tab: BrowserTab, src: String?, title: String, drm: Boolean, reply: JavaScriptReplyProxy)
+  fun onPlay(tab: BrowserTab, src: String?, title: String, drm: Boolean, userGesture: Boolean, reply: JavaScriptReplyProxy)
 
   fun onCreateWindow(tab: BrowserTab, isUserGesture: Boolean, resultMsg: Message): Boolean
 
@@ -293,13 +293,29 @@ internal class GoWebViewFactory(
           size = json.optLong("len", -1),
         )
       "drm" -> tab.sniffer.markDrm()
+      "blob_mse", "mse" -> tab.sniffer.onBlobMse(json.optString("mime").ifBlank { null })
       "play" -> {
         if (!json.optBoolean("video", true)) return
+        val muted = json.optBoolean("muted", false)
+        val loop = json.optBoolean("loop", false)
+        val controls = json.optBoolean("controls", false)
+        val width = json.optInt("width", 0)
+        val height = json.optInt("height", 0)
+        val gesture = json.optBoolean("gesture", false)
         val src = json.optString("src").ifBlank { null }
         if (src != null && src.startsWith("http")) {
           tab.sniffer.onRequest(src, null, frame.ifBlank { tab.pageUrl }, tab.pageUrl, tab._title.value)
         }
-        host.onPlay(tab, src, json.optString("title").ifBlank { tab._title.value }, json.optBoolean("drm"), reply)
+        val isIgnored = PlayTakeover.shouldIgnoreVideo(muted, loop, controls, width, height)
+        if (isIgnored) return
+        host.onPlay(
+          tab = tab,
+          src = src,
+          title = json.optString("title").ifBlank { tab._title.value },
+          drm = json.optBoolean("drm"),
+          userGesture = gesture,
+          reply = reply,
+        )
       }
     }
   }
@@ -330,6 +346,9 @@ internal class GoWebViewFactory(
       }
       val referer = headers["Referer"] ?: headers["referer"] ?: page
       tab.sniffer.onRequest(url, null, referer, page, tab._title.value)
+      if (MediaClassifier.isSegment(url, headers["Accept"] ?: headers["accept"], headers["Range"] ?: headers["range"])) {
+        tab.sniffer.onSegmentSeen(url)
+      }
       return null
     }
 

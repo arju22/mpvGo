@@ -438,8 +438,10 @@ class TabManager(
     src: String?,
     title: String,
     drm: Boolean,
+    userGesture: Boolean,
     reply: JavaScriptReplyProxy,
   ) {
+    tab.sniffer.logEvent("play: src=$src gesture=$userGesture")
     if (tab.id != _activeId.value) {
       reply.post("pause")
       return
@@ -451,8 +453,12 @@ class TabManager(
       return
     }
     val media = tab.sniffer.match(src)
-    when (PlayTakeover.decide(prefs.mode(), prefs.siteChoice(host), tab.pageUrl, media != null, false)) {
-      PlayTakeover.Action.LET_PAGE_PLAY -> Unit
+    when (PlayTakeover.decide(prefs.mode(), prefs.siteChoice(host), tab.pageUrl, media != null, false, userGesture)) {
+      PlayTakeover.Action.LET_PAGE_PLAY -> {
+        if (prefs.stopAutoplay.get() && !userGesture) {
+          reply.post("pause")
+        }
+      }
       PlayTakeover.Action.PLAY_IN_MPVGO -> {
         reply.post("pause")
         play(tab, media!!)
@@ -475,7 +481,7 @@ class TabManager(
             pendingReplies[tab.id] = reply
             val mode = prefs.mode()
             if (found != null &&
-              PlayTakeover.decide(mode, prefs.siteChoice(host), tab.pageUrl, true, false) == PlayTakeover.Action.PLAY_IN_MPVGO
+              PlayTakeover.decide(mode, prefs.siteChoice(host), tab.pageUrl, true, false, userGesture) == PlayTakeover.Action.PLAY_IN_MPVGO
             ) {
               pendingReplies.remove(tab.id)
               play(tab, found)

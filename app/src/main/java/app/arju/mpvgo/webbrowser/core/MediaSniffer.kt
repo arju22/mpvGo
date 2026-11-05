@@ -27,6 +27,11 @@ data class DetectedMedia(
   val quality: String? get() = variants.maxOfOrNull { it.height }?.takeIf { it > 0 }?.let { "${it}p" }
 }
 
+data class MediaEvent(
+  val timestamp: Long = System.currentTimeMillis(),
+  val message: String,
+)
+
 /**
  * Collects the streams one tab's page loads, from network requests and the JS hook.
  * Thread-safe: WebView network threads and the JS bridge both report here.
@@ -44,9 +49,26 @@ class MediaSniffer(
   private val _drm = MutableStateFlow(false)
   val drm: StateFlow<Boolean> = _drm.asStateFlow()
 
+  private val _hasHiddenPlaylist = MutableStateFlow(false)
+  val hasHiddenPlaylist: StateFlow<Boolean> = _hasHiddenPlaylist.asStateFlow()
+
+  private val _blobMseDetected = MutableStateFlow(false)
+  val blobMseDetected: StateFlow<Boolean> = _blobMseDetected.asStateFlow()
+
+  private val _detectionLog = MutableStateFlow<List<MediaEvent>>(emptyList())
+  val detectionLog: StateFlow<List<MediaEvent>> = _detectionLog.asStateFlow()
+
   private val variantKeys = HashSet<String>()
   private var seq = 0L
   private var generation = 0
+
+  fun logEvent(message: String) {
+    synchronized(this) {
+      val current = _detectionLog.value
+      val next = current + MediaEvent(message = message)
+      _detectionLog.value = if (next.size > 50) next.takeLast(50) else next
+    }
+  }
 
   @Synchronized
   fun reset() {
@@ -54,10 +76,26 @@ class MediaSniffer(
     variantKeys.clear()
     _media.value = emptyList()
     _drm.value = false
+    _hasHiddenPlaylist.value = false
+    _blobMseDetected.value = false
+    _detectionLog.value = emptyList()
   }
 
   fun markDrm() {
     _drm.value = true
+    logEvent("drm_detected")
+  }
+
+  fun onSegmentSeen(url: String) {
+    if (_media.value.isEmpty()) {
+      _hasHiddenPlaylist.value = true
+    }
+    logEvent("segment: $url")
+  }
+
+  fun onBlobMse(mime: String? = null) {
+    _blobMseDetected.value = true
+    logEvent("blob_mse${if (mime != null) " mime=$mime" else ""}")
   }
 
   /** "Clear list": forgets what was found so far; new streams still show up. */
@@ -74,7 +112,12 @@ class MediaSniffer(
     pageTitle: String,
     size: Long = -1,
   ) {
-    val kind = MediaClassifier.classify(url, mime) ?: return
+    val kind = MediaClassifier.classify(url, mime)
+    if (kind == null) {
+      logEvent("ignored: $url mime=$mime")
+      return
+    }
+    logEvent("found: $kind $url mime=$mime size=$size")
     val key = MediaClassifier.dedupKey(url)
     val gen: Int
     synchronized(this) {

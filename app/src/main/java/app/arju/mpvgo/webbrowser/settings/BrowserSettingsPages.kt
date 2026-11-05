@@ -201,6 +201,8 @@ internal fun VideoPage() {
       }
       PreferenceDivider()
       SwitchRow(prefs.addWebVideosToRecents, "Add web videos to Recents", "Not for private tabs")
+      PreferenceDivider()
+      SwitchRow(prefs.stopAutoplay, "Stop autoplay on sites", "Pause autoplay videos until tapped")
     }
   }
 }

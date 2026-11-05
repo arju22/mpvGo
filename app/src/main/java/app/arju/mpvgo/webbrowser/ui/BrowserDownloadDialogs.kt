@@ -1,6 +1,8 @@
 package app.arju.mpvgo.webbrowser.ui
 
+import android.content.Context
 import android.text.format.Formatter
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,14 +20,18 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -47,7 +53,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.arju.mpvgo.webbrowser.core.BrowserDownloads
 import app.arju.mpvgo.webbrowser.core.DetectedMedia
+import app.arju.mpvgo.webbrowser.core.MediaEvent
 import app.arju.mpvgo.webbrowser.core.MediaKind
+import java.util.Locale
 
 /** The page started a video: play it in mpvGo, download it, keep the web player or copy the link. */
 @Composable
@@ -117,64 +125,167 @@ private fun ButtonContent(
 fun FoundVideosSheet(
   host: String,
   media: List<DetectedMedia>,
+  hasHiddenPlaylist: Boolean = false,
+  blobMseDetected: Boolean = false,
   isDownloaded: (DetectedMedia) -> Boolean,
   onPlay: (DetectedMedia) -> Unit,
   onDownload: (DetectedMedia) -> Unit,
   onDownloadAll: (List<DetectedMedia>) -> Unit,
   onClear: () -> Unit,
   onDismiss: () -> Unit,
+  onShowDetectionLog: (() -> Unit)? = null,
 ) {
   val context = LocalContext.current
   val sorted = media.sortedByDescending { it.seq }
   val pending = sorted.filterNot(isDownloaded)
   ModalBottomSheet(onDismissRequest = onDismiss) {
     Column(Modifier.padding(horizontal = 16.dp)) {
-      Text(
-        if (sorted.size == 1) "1 video found" else "${sorted.size} videos found",
-        style = MaterialTheme.typography.titleMedium,
-      )
-      if (host.isNotBlank()) {
-        Text(host, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Column(Modifier.weight(1f)) {
+          Text(
+            if (sorted.isEmpty()) "Videos" else if (sorted.size == 1) "1 video found" else "${sorted.size} videos found",
+            style = MaterialTheme.typography.titleMedium,
+          )
+          if (host.isNotBlank()) {
+            Text(host, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          }
+        }
+        if (onShowDetectionLog != null) {
+          TextButton(onClick = onShowDetectionLog) {
+            Text("Log", style = MaterialTheme.typography.labelMedium)
+          }
+        }
       }
     }
-    LazyColumn(Modifier.heightIn(max = 420.dp)) {
-      items(sorted, key = { it.key }) { item ->
-        val done = isDownloaded(item)
-        ListItem(
-          headlineContent = {
-            Text(BrowserDownloads.fileName(item.url).ifBlank { item.url }, maxLines = 1, overflow = TextOverflow.Ellipsis)
-          },
-          supportingContent = {
-            val size = if (item.size > 0 && item.kind != MediaKind.HLS) Formatter.formatShortFileSize(context, item.size) else null
-            Text(listOfNotNull(BrowserDownloads.streamInfo(item), size).joinToString(" · "))
-          },
-          trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              if (done) {
-                Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(4.dp))
-                Text("Downloaded", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-              } else {
-                IconButton(onClick = { onDownload(item) }) { Icon(Icons.Filled.Download, "Download") }
-              }
-              IconButton(onClick = { onPlay(item) }) { Icon(Icons.Filled.PlayArrow, "Play in mpvGo") }
+    if (sorted.isEmpty()) {
+      if (hasHiddenPlaylist) {
+        Card(
+          modifier = Modifier.padding(16.dp).fillMaxWidth(),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+          Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(12.dp))
+            Column {
+              Text("Stream found but its playlist is hidden", style = MaterialTheme.typography.titleSmall)
+              Text(
+                "This site loads video segments directly without exposing its playlist.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
             }
-          },
+          }
+        }
+      } else if (blobMseDetected) {
+        Card(
+          modifier = Modifier.padding(16.dp).fillMaxWidth(),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+          Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(12.dp))
+            Column {
+              Text("This site streams in a way mpvGo can't capture", style = MaterialTheme.typography.titleSmall)
+              Text(
+                "This video uses MediaSource blob streaming without an accessible URL.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
+          }
+        }
+      } else {
+        Text(
+          "No videos found on this page",
+          style = MaterialTheme.typography.bodyMedium,
+          modifier = Modifier.padding(24.dp),
         )
       }
-    }
-    Row(
-      Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-      horizontalArrangement = Arrangement.SpaceBetween,
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      TextButton(onClick = onClear) { Text("Clear list") }
-      Button(onClick = { onDownloadAll(pending) }, enabled = pending.isNotEmpty()) {
-        Text(if (pending.size > 1) "Download all (${pending.size})" else "Download all")
+    } else {
+      LazyColumn(Modifier.heightIn(max = 420.dp)) {
+        items(sorted, key = { it.key }) { item ->
+          val done = isDownloaded(item)
+          ListItem(
+            headlineContent = {
+              Text(BrowserDownloads.fileName(item.url).ifBlank { item.url }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            },
+            supportingContent = {
+              val size = if (item.size > 0 && item.kind != MediaKind.HLS) Formatter.formatShortFileSize(context, item.size) else null
+              Text(listOfNotNull(BrowserDownloads.streamInfo(item), size).joinToString(" · "))
+            },
+            trailingContent = {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                if (done) {
+                  Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
+                  Spacer(Modifier.width(4.dp))
+                  Text("Downloaded", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                } else {
+                  IconButton(onClick = { onDownload(item) }) { Icon(Icons.Filled.Download, "Download") }
+                }
+                IconButton(onClick = { onPlay(item) }) { Icon(Icons.Filled.PlayArrow, "Play in mpvGo") }
+              }
+            },
+          )
+        }
+      }
+      Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        TextButton(onClick = onClear) { Text("Clear list") }
+        Button(onClick = { onDownloadAll(pending) }, enabled = pending.isNotEmpty()) {
+          Text(if (pending.size > 1) "Download all (${pending.size})" else "Download all")
+        }
       }
     }
     Spacer(Modifier.height(16.dp))
   }
+}
+
+@Composable
+fun DetectionLogDialog(
+  events: List<MediaEvent>,
+  onDismiss: () -> Unit,
+) {
+  val context = LocalContext.current
+  val sdf = remember { java.text.SimpleDateFormat("HH:mm:ss.SSS", Locale.US) }
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text("Detection log (last ${events.size})") },
+    text = {
+      if (events.isEmpty()) {
+        Text("No media events recorded for this tab.")
+      } else {
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 350.dp)) {
+          items(events.reversed()) { ev ->
+            Column(Modifier.padding(vertical = 4.dp)) {
+              Text(sdf.format(java.util.Date(ev.timestamp)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+              Text(ev.message, style = MaterialTheme.typography.bodySmall)
+            }
+            HorizontalDivider()
+          }
+        }
+      }
+    },
+    confirmButton = {
+      TextButton(onClick = {
+        val text = events.joinToString("\n") { "${sdf.format(java.util.Date(it.timestamp))}: ${it.message}" }
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        cm.setPrimaryClip(android.content.ClipData.newPlainText("Detection log", text))
+        Toast.makeText(context, "Log copied to clipboard", Toast.LENGTH_SHORT).show()
+      }) {
+        Text("Copy")
+      }
+    },
+    dismissButton = {
+      TextButton(onClick = onDismiss) { Text("Close") }
+    },
+  )
 }
 
 @Composable

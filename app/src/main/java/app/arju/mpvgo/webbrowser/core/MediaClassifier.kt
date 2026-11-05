@@ -51,6 +51,20 @@ object MediaClassifier {
     return ext in AUDIO_ONLY
   }
 
+  fun isSegment(
+    url: String,
+    accept: String? = null,
+    range: String? = null,
+  ): Boolean {
+    val lower = url.lowercase(Locale.ROOT)
+    val path = lower.substringBefore('#').substringBefore('?')
+    val ext = path.substringAfterLast('.', "")
+    if (ext in SEGMENT_EXT || isSegmentLike(path)) return true
+    if (accept != null && (accept.contains("video/mp2t") || accept.contains("video/iso.segment"))) return true
+    if (range != null && range.startsWith("bytes=")) return true
+    return false
+  }
+
   private fun isSegmentLike(path: String): Boolean {
     val last = path.substringAfterLast('/')
     return SEGMENT_HINT.containsMatchIn(last) || RANGE_PATH.containsMatchIn(path)

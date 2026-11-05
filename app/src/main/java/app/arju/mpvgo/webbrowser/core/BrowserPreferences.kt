@@ -21,6 +21,7 @@ class BrowserPreferences(store: PreferenceStore) {
   val siteChoices = store.getStringSet("browser_site_choices", emptySet())
   val floatingMediaButton = store.getBoolean("browser_media_button", true)
   val addWebVideosToRecents = store.getBoolean("browser_web_videos_in_recents", true)
+  val stopAutoplay = store.getBoolean("browser_stop_autoplay", true)
   val javascript = store.getBoolean("browser_javascript", true)
   val userAgent = store.getString("browser_user_agent", "")
   val desktopSite = store.getBoolean("browser_desktop_site", false)
@@ -67,7 +68,7 @@ class BrowserPreferences(store: PreferenceStore) {
   val resettable
     get() =
       listOf(
-        videoTapMode, floatingMediaButton, addWebVideosToRecents, javascript, userAgent, desktopSite,
+        videoTapMode, floatingMediaButton, addWebVideosToRecents, stopAutoplay, javascript, userAgent, desktopSite,
         searchEngine, customSearchUrl, topBarButtons, pullToRefresh, rememberTabs, historyDays,
         siteTiles, textZoom, darkWebsites, showTabCount, swipeAddressBar, swipeTabsPanel,
         searchSuggestions, suggestCopiedLink, blockThirdPartyCookies, httpsUpgrade, safeBrowsing,
@@ -108,7 +109,9 @@ object PlayTakeover {
     pageUrl: String,
     hasStream: Boolean,
     isDrm: Boolean,
+    userGesture: Boolean = true,
   ): Action {
+    if (!userGesture) return Action.LET_PAGE_PLAY
     if (isDrm || MediaClassifier.isBlockedForPlayback(pageUrl)) return Action.LET_PAGE_PLAY
     return when (mode) {
       VideoTapMode.ALWAYS_WEB -> Action.LET_PAGE_PLAY
@@ -121,6 +124,20 @@ object PlayTakeover {
           null -> Action.ASK
         }
     }
+  }
+
+  /** Muted, looping, or tiny (<200px) preview videos without controls are ignored. */
+  fun shouldIgnoreVideo(
+    muted: Boolean,
+    loop: Boolean,
+    controls: Boolean,
+    width: Int,
+    height: Int,
+  ): Boolean {
+    if (controls) return false
+    if (muted || loop) return true
+    if ((width in 1..199) || (height in 1..199)) return true
+    return false
   }
 
   fun choiceFor(
