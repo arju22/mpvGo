@@ -1,6 +1,10 @@
 package app.arju.mpvgo.webbrowser.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,9 +14,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -61,6 +67,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,17 +77,25 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.arju.mpvgo.webbrowser.core.TopBarButton
 import app.arju.mpvgo.webbrowser.core.UrlSuggestion
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** Everything the browser chrome can ask the screen to do. */
 enum class BrowserAction {
@@ -110,6 +126,8 @@ data class TopBarState(
   val loading: Boolean,
   val progress: Int,
   val tabCount: Int,
+  val tabPosition: String? = null,
+  val activeTabId: Long? = null,
   val canGoForward: Boolean,
   val buttons: List<TopBarButton>,
   val activeDownloads: Int,
@@ -128,7 +146,7 @@ fun BrowserTopBar(
   state: TopBarState,
   onAction: (BrowserAction) -> Unit,
   onSubmit: (String) -> Unit,
-  onSwipeTab: (Int) -> Unit,
+  onSwipeTab: (Int) -> Boolean,
   editRequest: Int,
   suggest: suspend (query: String) -> List<UrlSuggestion> = { emptyList() },
 ) {
@@ -137,6 +155,18 @@ fun BrowserTopBar(
   var editing by remember { mutableStateOf(false) }
   var query by remember { mutableStateOf("") }
   var suggestions by remember { mutableStateOf(emptyList<UrlSuggestion>()) }
+  var flashPosition by remember { mutableStateOf<String?>(null) }
+  var lastActiveId by remember { mutableStateOf<Long?>(null) }
+
+  LaunchedEffect(state.activeTabId, state.tabCount, state.tabPosition) {
+    if (lastActiveId != null && lastActiveId != state.activeTabId && state.tabPosition != null) {
+      flashPosition = state.tabPosition
+      delay(1500)
+      flashPosition = null
+    }
+    lastActiveId = state.activeTabId
+  }
+
   LaunchedEffect(editRequest) { if (editRequest > 0) editing = true }
   LaunchedEffect(editing, query) {
     if (!editing) {
@@ -163,12 +193,12 @@ fun BrowserTopBar(
           )
         } else {
           Row(Modifier.fillMaxWidth().height(TopBarHeight).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            TabsButton(state.tabCount, state.isPrivate, state.showTabCount) { onAction(BrowserAction.TABS) }
+            TabsButton(state.tabCount, state.isPrivate, state.showTabCount, flashPosition) { onAction(BrowserAction.TABS) }
             UrlBox(
               state = state,
               onClick = { editing = true },
               onReload = { onAction(if (state.loading) BrowserAction.STOP else BrowserAction.RELOAD) },
-              onSwipeTab = { if (state.swipeToSwitch) onSwipeTab(it) },
+              onSwipeTab = { if (state.swipeToSwitch) onSwipeTab(it) else false },
               modifier = Modifier.weight(1f),
             )
             state.buttons.forEach { button ->
@@ -286,16 +316,27 @@ private fun TabsButton(
   count: Int,
   isPrivate: Boolean,
   showCount: Boolean,
+  positionText: String?,
   onClick: () -> Unit,
 ) {
   IconButton(onClick = onClick) {
     val color = if (isPrivate) PrivateColors.content else MaterialTheme.colorScheme.onSurface
     Box(
-      Modifier.size(24.dp).border(2.dp, color, RoundedCornerShape(6.dp)),
+      Modifier
+        .height(24.dp)
+        .widthIn(min = 24.dp)
+        .border(2.dp, color, RoundedCornerShape(6.dp))
+        .padding(horizontal = 3.dp),
       contentAlignment = Alignment.Center,
     ) {
       if (isPrivate && (count == 0 || !showCount)) {
         Icon(Icons.Filled.VisibilityOff, null, Modifier.size(14.dp), tint = color)
+      } else if (positionText != null) {
+        Text(
+          positionText,
+          style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+          color = color,
+        )
       } else if (showCount) {
         Text(if (count > 99) "∞" else "$count", style = MaterialTheme.typography.labelMedium, color = color)
       }
@@ -308,11 +349,17 @@ private fun UrlBox(
   state: TopBarState,
   onClick: () -> Unit,
   onReload: () -> Unit,
-  onSwipeTab: (Int) -> Unit,
+  onSwipeTab: (Int) -> Boolean,
   modifier: Modifier,
 ) {
-  val threshold = with(LocalDensity.current) { 64.dp.toPx() }
-  var drag by remember { mutableFloatStateOf(0f) }
+  val currentOnSwipeTab by rememberUpdatedState(onSwipeTab)
+  val currentSwipeToSwitch by rememberUpdatedState(state.swipeToSwitch)
+  val haptic = LocalHapticFeedback.current
+  val density = LocalDensity.current
+  val distanceThreshold = with(density) { 48.dp.toPx() }
+  val velocityThreshold = with(density) { 500.dp.toPx() }
+  val bounceOffset = remember { Animatable(0f) }
+  val scope = rememberCoroutineScope()
   val secure = state.url.startsWith("https://")
   Surface(
     shape = RoundedCornerShape(22.dp),
@@ -320,17 +367,44 @@ private fun UrlBox(
     modifier =
       modifier
         .height(44.dp)
+        .offset { IntOffset(bounceOffset.value.roundToInt(), 0) }
         .pointerInput(Unit) {
+          var totalDrag = 0f
+          val tracker = VelocityTracker()
           detectHorizontalDragGestures(
-            onDragStart = { drag = 0f },
-            onDragEnd = {
-              if (drag <= -threshold) onSwipeTab(1) else if (drag >= threshold) onSwipeTab(-1)
-              drag = 0f
+            onDragStart = {
+              totalDrag = 0f
+              tracker.resetTracking()
             },
-            onDragCancel = { drag = 0f },
+            onDragEnd = {
+              val velX = tracker.calculateVelocity().x
+              val fling = abs(velX) >= velocityThreshold && (velX > 0) == (totalDrag > 0)
+              val direction = when {
+                totalDrag <= -distanceThreshold || (fling && velX < 0) -> 1
+                totalDrag >= distanceThreshold || (fling && velX > 0) -> -1
+                else -> 0
+              }
+              if (direction != 0 && currentSwipeToSwitch) {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                val switched = currentOnSwipeTab(direction)
+                if (!switched) {
+                  scope.launch {
+                    val bouncePx = if (direction == 1) -24f else 24f
+                    bounceOffset.animateTo(bouncePx, tween(80))
+                    bounceOffset.animateTo(
+                      0f,
+                      spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+                    )
+                  }
+                }
+              }
+              totalDrag = 0f
+            },
+            onDragCancel = { totalDrag = 0f },
           ) { change, amount ->
             change.consume()
-            drag += amount
+            totalDrag += amount
+            tracker.addPosition(change.uptimeMillis, change.position)
           }
         }.clickable(onClick = onClick),
   ) {

@@ -40,6 +40,16 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
+object TabNavigation {
+  /** Returns the id of the tab after moving [direction] (+1 or -1) within [siblings] of [currentId], or null if at boundary. */
+  fun stepId(currentId: Long?, siblings: List<Long>, direction: Int): Long? {
+    if (currentId == null || siblings.isEmpty()) return null
+    val i = siblings.indexOf(currentId)
+    if (i < 0) return null
+    return siblings.getOrNull(i + direction)
+  }
+}
+
 /**
  * Owns all browser tabs and their WebViews. Lives as an app singleton, so tabs survive leaving
  * the browser screen; WebViews are re-parented into whichever Activity shows them.
@@ -324,14 +334,18 @@ class TabManager(
   /** Tabs of the same kind (normal or private) as [tab], in opening order. */
   fun siblings(tab: BrowserTab): List<BrowserTab> = _tabs.value.filter { it.isPrivate == tab.isPrivate }
 
+  /** Selects the next (+1) or previous (-1) tab of the same kind; returns true if switched, false if at boundary. */
+  fun step(direction: Int): Boolean = step(active ?: return false, direction)
+
   /** Selects the next (+1) or previous (-1) tab of the same kind; no wrap-around. */
   fun step(
     tab: BrowserTab,
     direction: Int,
-  ) {
+  ): Boolean {
     val list = siblings(tab)
-    val i = list.indexOfFirst { it.id == tab.id }
-    list.getOrNull(i + direction)?.let { select(it.id) }
+    val nextId = TabNavigation.stepId(tab.id, list.map { it.id }, direction) ?: return false
+    select(nextId)
+    return true
   }
 
   fun pauseAll() {

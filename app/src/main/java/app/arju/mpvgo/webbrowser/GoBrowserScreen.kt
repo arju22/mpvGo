@@ -443,6 +443,9 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
                 onClose = ::closeFind,
               )
             } else {
+              val siblings = tabs.siblings(tab)
+              val tabIndex = siblings.indexOfFirst { it.id == activeId }
+              val tabPositionText = if (tabIndex >= 0 && siblings.size > 1) "${tabIndex + 1}/${siblings.size}" else null
               BrowserTopBar(
                 state =
                   TopBarState(
@@ -450,7 +453,9 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
                     isPrivate = isPrivate,
                     loading = loading,
                     progress = progress,
-                    tabCount = tabs.siblings(tab).size,
+                    tabCount = siblings.size,
+                    tabPosition = tabPositionText,
+                    activeTabId = activeId,
                     canGoForward = canGoForward,
                     buttons = TopBarButton.parse(topButtons),
                     activeDownloads = activeDownloads,
@@ -466,7 +471,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
                 onSubmit = { text -> tabs.load(tab, text) },
                 onSwipeTab = { dir ->
                   closeFind()
-                  tabs.step(tab, dir)
+                  tabs.step(dir)
                 },
                 editRequest = editRequest,
               )

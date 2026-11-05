@@ -17,7 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -91,19 +92,31 @@ fun TabsDrawer(
           } else {
             SegmentedButtonDefaults.colors()
           }
+        val normalActiveIndex = normal.indexOfFirst { it.id == activeId }
+        val normalLabel = if (normalActiveIndex >= 0 && normal.isNotEmpty()) {
+          "Tabs ${normalActiveIndex + 1}/${normal.size}"
+        } else {
+          "Tabs ${normal.size}"
+        }
+        val privateActiveIndex = private.indexOfFirst { it.id == activeId }
+        val privateLabel = if (privateActiveIndex >= 0 && private.isNotEmpty()) {
+          "Private ${privateActiveIndex + 1}/${private.size}"
+        } else {
+          "Private ${private.size}"
+        }
         SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
           SegmentedButton(
             selected = !showPrivate,
             onClick = { onShowPrivate(false) },
             shape = SegmentedButtonDefaults.itemShape(0, 2),
             colors = segColors,
-          ) { Text("Tabs (${normal.size})") }
+          ) { Text(normalLabel) }
           SegmentedButton(
             selected = showPrivate,
             onClick = { onShowPrivate(true) },
             shape = SegmentedButtonDefaults.itemShape(1, 2),
             colors = segColors,
-          ) { Text("Private (${private.size})") }
+          ) { Text(privateLabel) }
         }
         IconButton(enabled = list.isNotEmpty(), onClick = onCloseAll) {
           Icon(Icons.Filled.DeleteSweep, if (showPrivate) "Close all private tabs" else "Close all tabs")
@@ -117,9 +130,16 @@ fun TabsDrawer(
           modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
       }
-      LazyColumn(Modifier.weight(1f).padding(top = 8.dp)) {
-        items(list, key = { it.id }) { tab ->
-          TabRow(tab, tab.id == activeId, showPrivate, { onSelect(tab) }, { onClose(tab) })
+      val listState = rememberLazyListState()
+      androidx.compose.runtime.LaunchedEffect(activeId, showPrivate) {
+        val idx = list.indexOfFirst { it.id == activeId }
+        if (idx >= 0) {
+          listState.scrollToItem(idx)
+        }
+      }
+      LazyColumn(state = listState, modifier = Modifier.weight(1f).padding(top = 8.dp)) {
+        itemsIndexed(list, key = { _, tab -> tab.id }) { index, tab ->
+          TabRow(tab, tab.id == activeId, showPrivate, index, list.size, { onSelect(tab) }, { onClose(tab) })
         }
         if (list.isEmpty()) {
           item {
@@ -158,6 +178,8 @@ private fun TabRow(
   tab: BrowserTab,
   active: Boolean,
   isPrivate: Boolean,
+  index: Int,
+  totalCount: Int,
   onClick: () -> Unit,
   onClose: () -> Unit,
 ) {
@@ -175,7 +197,10 @@ private fun TabRow(
       .fillMaxWidth()
       .padding(horizontal = 8.dp, vertical = 2.dp)
       .background(highlight, RoundedCornerShape(12.dp))
-      .clickable(onClick = onClick)
+      .clickable(
+        onClick = onClick,
+        onClickLabel = "Select tab ${index + 1} of $totalCount",
+      )
       .padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {

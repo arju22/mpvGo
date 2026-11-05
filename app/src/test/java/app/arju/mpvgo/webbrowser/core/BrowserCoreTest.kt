@@ -116,4 +116,22 @@ class BrowserCoreTest {
     assertEquals("https://duckduckgo.com/?q=cat+videos", UrlInput.toUrl("cat videos"))
     assertEquals("https://duckduckgo.com/?q=hello", UrlInput.toUrl("hello"))
   }
+
+  @Test
+  fun `tab navigation steps forward and backward and detects boundaries`() {
+    val tabs = listOf(101L, 102L, 103L, 104L)
+    assertEquals(102L, TabNavigation.stepId(101L, tabs, 1))
+    assertEquals(103L, TabNavigation.stepId(102L, tabs, 1))
+    assertEquals(104L, TabNavigation.stepId(103L, tabs, 1))
+    assertNull(TabNavigation.stepId(104L, tabs, 1))
+
+    assertEquals(103L, TabNavigation.stepId(104L, tabs, -1))
+    assertEquals(102L, TabNavigation.stepId(103L, tabs, -1))
+    assertEquals(101L, TabNavigation.stepId(102L, tabs, -1))
+    assertNull(TabNavigation.stepId(101L, tabs, -1))
+
+    assertNull(TabNavigation.stepId(999L, tabs, 1))
+    assertNull(TabNavigation.stepId(null, tabs, 1))
+    assertNull(TabNavigation.stepId(101L, emptyList<Long>(), 1))
+  }
 }

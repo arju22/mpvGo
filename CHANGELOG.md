@@ -9,10 +9,15 @@ This file is updated with every batch of changes and before every release push.
 
 ## [Unreleased]
 
+### Added
+- Browser: tab position indicator (e.g. "Tabs 3/5") in the tabs drawer and a brief position flash on the top bar tabs button when switching tabs.
+- Browser: address bar tab switching now supports fling gestures, provides light haptic feedback, and bounces when reaching the first or last tab.
+
 ### Changed
 - Browser: opening the tabs panel by swiping from the left edge is now off by default to avoid accidental triggers with system back navigation and web sliders. It can still be turned on in Settings › Browser › Gestures.
 
 ### Fixed
+- Browser: swiping the address bar to switch tabs now tracks the current tab dynamically and switches reliably on every swipe.
 - Browser: tapping outside the open tabs drawer or swiping left to close it now always closes the drawer even when the swipe-to-open gesture is turned off.
 
 ## [1.1.0] - 2026-10-28
