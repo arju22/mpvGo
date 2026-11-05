@@ -78,4 +78,14 @@ class PlayerPreferences(
     serializer = { it.toString() },
     deserializer = { it.toDoubleOrNull() ?: -1.0 }
   )
+
+  val preferredStreamQuality = preferenceStore.getEnum("preferred_stream_quality", StreamPreferredQuality.AUTO)
+  val dataSaverOnMobileData = preferenceStore.getBoolean("data_saver_on_mobile", false)
+}
+
+enum class StreamPreferredQuality(val label: String) {
+  AUTO("Auto"),
+  BEST("Best available"),
+  DATA_SAVER("Data saver (<=480p)"),
+  ASK("Ask each time"),
 }

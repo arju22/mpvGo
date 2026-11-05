@@ -291,5 +291,14 @@ fun PlayerSheets(
         )
       }
     }
+
+    Sheets.Quality -> {
+      val qualityState by viewModel.qualityState.composeCollectAsState()
+      app.arju.mpvgo.player.controls.components.sheets.QualitySheet(
+        qualityState = qualityState,
+        onSelectQuality = viewModel::selectQuality,
+        onDismissRequest = onDismissRequest,
+      )
+    }
   }
 }

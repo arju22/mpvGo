@@ -20,6 +20,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +38,7 @@ import app.arju.mpvgo.player.Sheets
 import app.arju.mpvgo.player.VideoAspect
 import app.arju.mpvgo.player.controls.components.ControlsButton
 import app.arju.mpvgo.player.controls.components.ControlsGroup
+import app.arju.mpvgo.player.controls.components.sheets.QualityChip
 import app.arju.mpvgo.core.theme.controlColor
 import app.arju.mpvgo.core.theme.spacing
 import dev.vivvvek.seeker.Segment
@@ -50,13 +53,17 @@ fun TopPlayerControlsPortrait(
 ) {
   val playlistModeEnabled = viewModel.hasPlaylistSupport()
   val clickEvent = LocalPlayerButtonsClickEvent.current
+  val qualityState by viewModel.qualityState.collectAsState()
 
   Column {
     Row(
       modifier = Modifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-      ControlsGroup {
+      ControlsGroup(
+        modifier = Modifier.weight(1f, fill = false),
+      ) {
         ControlsButton(
           icon = Icons.AutoMirrored.Default.ArrowBack,
           onClick = onBackPress,
@@ -140,6 +147,12 @@ fun TopPlayerControlsPortrait(
             }
           }
         }
+      }
+      if (qualityState.hasMultipleQualities) {
+        QualityChip(
+          qualityState = qualityState,
+          onClick = { onOpenSheet(Sheets.Quality) },
+        )
       }
     }
   }

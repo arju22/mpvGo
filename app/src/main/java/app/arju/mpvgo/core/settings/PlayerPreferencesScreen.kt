@@ -413,6 +413,34 @@ object PlayerPreferencesScreen : Screen {
               )
             }
           }
+          // Network streams Section
+          item {
+            PreferenceSectionHeader(title = "Network streams")
+          }
+
+          item {
+            PreferenceCard {
+              val preferredQuality by preferences.preferredStreamQuality.collectAsState()
+              ListPreference(
+                value = preferredQuality,
+                onValueChange = preferences.preferredStreamQuality::set,
+                values = app.arju.mpvgo.core.preferences.StreamPreferredQuality.entries,
+                title = { Text("Preferred quality") },
+                summary = { Text(preferredQuality.label) },
+                valueToText = { AnnotatedString(it.label) },
+              )
+
+              PreferenceDivider()
+
+              val dataSaverMobile by preferences.dataSaverOnMobileData.collectAsState()
+              SwitchPreference(
+                value = dataSaverMobile,
+                onValueChange = preferences.dataSaverOnMobileData::set,
+                title = { Text("Data saver on mobile data") },
+                summary = { Text("Use 480p or lower when not on Wi-Fi") },
+              )
+            }
+          }
         }
       }
     }

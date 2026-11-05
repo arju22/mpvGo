@@ -1684,6 +1684,10 @@ class PlayerActivity :
     // Reset AB loop values when video changes
     viewModel.clearABLoop()
 
+    val currentUri = extractUriFromIntent(intent)
+    val isNetwork = currentUri != null && HttpUtils.isNetworkStream(currentUri)
+    viewModel.setIsOnlineStream(isNetwork)
+
     setIntentExtras(intent.extras)
 
     lifecycleScope.launch(Dispatchers.IO) {

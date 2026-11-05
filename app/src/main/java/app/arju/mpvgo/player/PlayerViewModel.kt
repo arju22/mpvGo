@@ -20,6 +20,7 @@ import app.arju.mpvgo.R
 import app.arju.mpvgo.core.preferences.AudioPreferences
 import app.arju.mpvgo.core.preferences.GesturePreferences
 import app.arju.mpvgo.core.preferences.PlayerPreferences
+import app.arju.mpvgo.core.preferences.StreamPreferredQuality
 import app.arju.mpvgo.core.preferences.SubtitlesPreferences
 import app.arju.mpvgo.core.utils.media.ChecksumUtils
 import app.arju.mpvgo.core.utils.media.MediaInfoParser
@@ -148,6 +149,88 @@ class PlayerViewModel(
         }.onFailure { Log.e(TAG, "Failed to parse track-list", it) }.getOrNull()
       }.stateIn(viewModelScope, SharingStarted.Lazily, persistentListOf())
 
+  val videoTracks: StateFlow<List<TrackNode>> =
+    MPVLib.propNode["track-list"]
+      .mapNotNull { node ->
+        runCatching {
+          node?.toObject<List<TrackNode>>(json)?.filter { it.isVideo }?.toImmutableList()
+            ?: persistentListOf()
+        }.onFailure { Log.e(TAG, "Failed to parse track-list (video)", it) }.getOrNull()
+      }.stateIn(viewModelScope, SharingStarted.Lazily, persistentListOf())
+
+  private val _isOnlineStream = MutableStateFlow(false)
+  private val _selectedQuality = MutableStateFlow<StreamQuality?>(null)
+  private var qualityPreferenceApplied = false
+
+  val qualityState: StateFlow<QualityState> =
+    combine(
+      _isOnlineStream,
+      videoTracks,
+      _selectedQuality,
+      MPVLib.propInt["dheight"],
+    ) { isOnline, vTracks, selected, dHeight ->
+      val available = QualityState.buildQualitiesFromTracks(vTracks)
+      val currentHeight = dHeight?.takeIf { it > 0 }
+        ?: vTracks.firstOrNull { it.isSelected }?.demuxH?.toInt() ?: 0
+      QualityState(
+        isOnlineStream = isOnline,
+        qualities = available,
+        selectedQuality = selected,
+        activeHeight = currentHeight,
+      )
+    }.stateIn(viewModelScope, SharingStarted.Lazily, QualityState())
+
+  fun setIsOnlineStream(isOnline: Boolean) {
+    _isOnlineStream.value = isOnline
+    _selectedQuality.value = null
+    qualityPreferenceApplied = false
+  }
+
+  fun selectQuality(quality: StreamQuality) {
+    if (quality.isAuto || quality.id < 0) {
+      _selectedQuality.value = null
+      MPVLib.command("set", "vid", "auto")
+      playerUpdate.value = PlayerUpdates.ShowText("Quality: Auto")
+    } else {
+      _selectedQuality.value = quality
+      if (quality.url != null) {
+        val timePos = MPVLib.getPropertyDouble("time-pos") ?: 0.0
+        MPVLib.command("loadfile", quality.url, "replace", "start=$timePos")
+      } else {
+        MPVLib.command("set", "vid", quality.id.toString())
+      }
+      playerUpdate.value = PlayerUpdates.ShowText("Switched to ${quality.label}")
+    }
+  }
+
+  private fun isConnectedToMobileData(): Boolean = runCatching {
+    val cm = host.context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+    val network = cm?.activeNetwork ?: return false
+    val caps = cm.getNetworkCapabilities(network) ?: return false
+    caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)
+  }.getOrDefault(false)
+
+  private fun applyInitialQualityPreference(qualities: List<StreamQuality>) {
+    val variants = qualities.filter { !it.isAuto }
+    if (variants.isEmpty()) return
+    val pref = playerPreferences.preferredStreamQuality.get()
+    val isDataSaverMobile = playerPreferences.dataSaverOnMobileData.get() && isConnectedToMobileData()
+    if (isDataSaverMobile || pref == StreamPreferredQuality.DATA_SAVER) {
+      val target = variants.filter { it.height in 1..480 }.maxByOrNull { it.height }
+        ?: variants.minByOrNull { it.height }
+      if (target != null) {
+        selectQuality(target)
+      }
+    } else if (pref == StreamPreferredQuality.BEST) {
+      val best = variants.maxByOrNull { it.height }
+      if (best != null) {
+        selectQuality(best)
+      }
+    } else if (pref == StreamPreferredQuality.ASK) {
+      sheetShown.value = Sheets.Quality
+    }
+  }
+
   val chapters: StateFlow<List<dev.vivvvek.seeker.Segment>> =
     MPVLib.propNode["chapter-list"]
       .mapNotNull { node ->
@@ -171,6 +254,15 @@ class PlayerViewModel(
       read = { MPVLib.getPropertyDouble("time-pos") },
       onPosition = { _precisePosition.value = it },
     )
+
+    viewModelScope.launch {
+      qualityState.collect { state ->
+        if (state.isOnlineStream && state.qualities.size > 1 && !qualityPreferenceApplied) {
+          qualityPreferenceApplied = true
+          applyInitialQualityPreference(state.qualities)
+        }
+      }
+    }
   }
 
   private val _areControlsLocked = MutableStateFlow(false)
