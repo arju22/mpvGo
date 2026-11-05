@@ -25,6 +25,8 @@ class BrowserPreferences(store: PreferenceStore) {
   /** Entries are "host=MPVGO" or "host=WEB". */
   val siteChoices = store.getStringSet("browser_site_choices", emptySet())
   val floatingMediaButton = store.getBoolean("browser_media_button", true)
+  val fabPositionPortrait = store.getString("browser_fab_pos_portrait", "RIGHT,1.0")
+  val fabPositionLandscape = store.getString("browser_fab_pos_landscape", "RIGHT,1.0")
   val addWebVideosToRecents = store.getBoolean("browser_web_videos_in_recents", true)
   val stopAutoplay = store.getBoolean("browser_stop_autoplay", true)
   val openVideosIn = store.getString("browser_open_videos_in", BrowserVideoPlayerMode.SMALL_WINDOW.name)
@@ -157,6 +159,28 @@ class BrowserPreferences(store: PreferenceStore) {
     choice: SiteChoice?,
   ) {
     siteChoices.set(PlayTakeover.withChoice(siteChoices.get(), host, choice))
+  }
+
+  fun getFabPosition(isLandscape: Boolean): Pair<Boolean, Float> {
+    val raw = if (isLandscape) fabPositionLandscape.get() else fabPositionPortrait.get()
+    val parts = raw.split(",")
+    val isEnd = parts.getOrNull(0)?.trim()?.uppercase() != "LEFT"
+    val yFraction = parts.getOrNull(1)?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 1f
+    return isEnd to yFraction
+  }
+
+  fun setFabPosition(isLandscape: Boolean, isEnd: Boolean, yFraction: Float) {
+    val str = "${if (isEnd) "RIGHT" else "LEFT"},${yFraction.coerceIn(0f, 1f)}"
+    if (isLandscape) {
+      fabPositionLandscape.set(str)
+    } else {
+      fabPositionPortrait.set(str)
+    }
+  }
+
+  fun resetFabPosition() {
+    fabPositionPortrait.set("RIGHT,1.0")
+    fabPositionLandscape.set("RIGHT,1.0")
   }
 }
 

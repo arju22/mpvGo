@@ -10,6 +10,7 @@ This file is updated with every batch of changes and before every release push.
 ## [Unreleased]
 
 ### Added
+- Browser: draggable video detection floating button with edge-snapping, lift animation during drag, persistent orientation-aware position, and shared FabDefaults insets matching the Home screen (#14).
 - Browser: User-Agent selector with 4 presets (Phone, Tablet, Desktop, Custom) and Client Hints metadata support, plus per-site User-Agent overrides accessible from the site settings panel (#16).
 - Player: stream quality picker for online network streams (HLS/DASH variants and multi-stream sources) with top bar chip, adaptive auto option, quality sheet, and preferred quality preferences (#8).
 - Browser/Player: browser web videos open in a small Android Picture-in-Picture floating window over the browser by default, with an option to choose "Small window" or "Full screen" in Settings › Browser › Videos (#11).

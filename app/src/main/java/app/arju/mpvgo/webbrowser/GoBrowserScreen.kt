@@ -12,8 +12,11 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,8 +72,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalViewConfiguration
+import android.content.res.Configuration
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -90,6 +97,8 @@ import app.arju.mpvgo.downloader.ui.DownloadRequests
 import app.arju.mpvgo.downloader.ui.toNewDownload
 import app.arju.mpvgo.webbrowser.core.BrowserBackAction
 import app.arju.mpvgo.webbrowser.core.BrowserDownloads
+import app.arju.mpvgo.webbrowser.core.BrowserPreferences
+import androidx.compose.ui.draw.scale
 import app.arju.mpvgo.webbrowser.core.LinkRefresh
 import app.arju.mpvgo.webbrowser.core.VideoTapMode
 import app.arju.mpvgo.webbrowser.ui.AlreadyDownloadedDialog
@@ -559,7 +568,7 @@ data class GoBrowserScreen(val url: String? = null) : Screen {
               if (showFab) {
                 MediaFab(
                   tab = tab,
-                  modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                  prefs = prefs,
                   onClick = { showMedia = true },
                   onLongClick = { showDetectionLog = true },
                 )
@@ -858,7 +867,7 @@ private fun LeftEdgeSwipe(
 @Composable
 private fun MediaFab(
   tab: BrowserTab,
-  modifier: Modifier,
+  prefs: BrowserPreferences,
   onClick: () -> Unit,
   onLongClick: () -> Unit,
 ) {
@@ -867,6 +876,25 @@ private fun MediaFab(
   val blobMse by tab.sniffer.blobMseDetected.collectAsState()
   val count = media.count { !it.audioOnly }
   if (count == 0 && !hasHidden && !blobMse) return
+
+  val configuration = LocalConfiguration.current
+  val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+  val density = LocalDensity.current
+  val viewConfig = LocalViewConfiguration.current
+  val coroutineScope = rememberCoroutineScope()
+
+  val portraitPos by prefs.fabPositionPortrait.collectAsState()
+  val landscapePos by prefs.fabPositionLandscape.collectAsState()
+  val (storedEnd, storedYFrac) = remember(isLandscape, portraitPos, landscapePos) {
+    prefs.getFabPosition(isLandscape)
+  }
+
+  var isDragging by remember { mutableStateOf(false) }
+  var isEnd by remember(storedEnd) { mutableStateOf(storedEnd) }
+  var yFraction by remember(storedYFrac) { mutableFloatStateOf(storedYFrac) }
+  var offsetX by remember { mutableFloatStateOf(0f) }
+  var offsetY by remember { mutableFloatStateOf(0f) }
+
   val live by koinInject<DownloadManager>().live.collectAsState()
   val progress = BrowserDownloads.progress(live.values)
   val ringColor = MaterialTheme.colorScheme.primary
@@ -876,7 +904,9 @@ private fun MediaFab(
       androidx.compose.animation.core.rememberInfiniteTransition(label = "dlRing").animateFloat(
         initialValue = 0f,
         targetValue = 360f,
-        animationSpec = androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(1200, easing = androidx.compose.animation.core.LinearEasing)),
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+          androidx.compose.animation.core.tween(1200, easing = androidx.compose.animation.core.LinearEasing)
+        ),
         label = "dlRingAngle",
       ).value
     } else {
@@ -897,28 +927,120 @@ private fun MediaFab(
         drawArc(ringColor, -90f, 360f * p, false, topLeft, arcSize, style = stroke)
       }
     }
-  Box(modifier.then(ring), contentAlignment = Alignment.Center) {
-    Surface(
-      shape = FloatingActionButtonDefaults.shape,
-      color = MaterialTheme.colorScheme.primaryContainer,
-      shadowElevation = 6.dp,
+
+  BoxWithConstraints(Modifier.fillMaxSize()) {
+    val widthPx = with(density) { maxWidth.toPx() }
+    val heightPx = with(density) { maxHeight.toPx() }
+    val fabSizePx = with(density) { 56.dp.toPx() }
+    val edgeInsetPx = with(density) { FabDefaults.EdgeInset.toPx() }
+    val bottomInsetPx = with(density) { FabDefaults.BottomInset.toPx() }
+    val topInsetPx = with(density) { 16.dp.toPx() }
+
+    val minY = topInsetPx
+    val maxY = (heightPx - fabSizePx - bottomInsetPx).coerceAtLeast(minY)
+    val settledX = if (isEnd) (widthPx - fabSizePx - edgeInsetPx).coerceAtLeast(0f) else edgeInsetPx
+    val settledY = minY + yFraction * (maxY - minY)
+
+    val animatedX by androidx.compose.animation.core.animateFloatAsState(
+      targetValue = if (isDragging) offsetX else settledX,
+      animationSpec = androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow),
+      label = "fabX",
+    )
+    val animatedY by androidx.compose.animation.core.animateFloatAsState(
+      targetValue = if (isDragging) offsetY else settledY,
+      animationSpec = androidx.compose.animation.core.spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow),
+      label = "fabY",
+    )
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+      targetValue = if (isDragging) 1.05f else 1.0f,
+      label = "fabScale",
+    )
+    val elevation by androidx.compose.animation.core.animateDpAsState(
+      targetValue = if (isDragging) 12.dp else 6.dp,
+      label = "fabElev",
+    )
+
+    val touchSlop = viewConfig.touchSlop
+    val longPressTimeout = viewConfig.longPressTimeoutMillis
+
+    Box(
       modifier = Modifier
-        .size(56.dp)
-        .combinedClickable(
-          onClick = onClick,
-          onLongClick = onLongClick,
-          onClickLabel = "Found videos",
-          onLongClickLabel = "Detection log",
-        ),
+        .offset { androidx.compose.ui.unit.IntOffset(animatedX.roundToInt(), animatedY.roundToInt()) }
+        .scale(scale)
+        .then(ring),
+      contentAlignment = Alignment.Center,
     ) {
-      Box(contentAlignment = Alignment.Center) {
-        if (count > 0) {
-          BadgedBox(badge = { Badge { Text("$count") } }) {
-            Icon(Icons.Filled.SmartDisplay, if (count == 1) "1 video found" else "$count videos found")
-          }
-        } else {
-          BadgedBox(badge = { Badge { Text("!") } }) {
-            Icon(Icons.Filled.SmartDisplay, "Video detected")
+      Surface(
+        shape = FloatingActionButtonDefaults.shape,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shadowElevation = elevation,
+        modifier = Modifier
+          .size(56.dp)
+          .pointerInput(isLandscape, widthPx, heightPx, settledX, settledY) {
+            awaitEachGesture {
+              val down = awaitFirstDown(requireUnconsumed = false)
+              var dragging = false
+              var longClicked = false
+              var totalDrag = androidx.compose.ui.geometry.Offset.Zero
+              offsetX = settledX
+              offsetY = settledY
+
+              val longPressJob = coroutineScope.launch {
+                kotlinx.coroutines.delay(longPressTimeout)
+                if (!dragging) {
+                  longClicked = true
+                  onLongClick()
+                }
+              }
+
+              try {
+                while (true) {
+                  val event = awaitPointerEvent()
+                  val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                  if (!change.pressed && change.previousPressed) {
+                    change.consume()
+                    longPressJob.cancel()
+                    if (dragging) {
+                      isDragging = false
+                      val newIsEnd = (offsetX + fabSizePx / 2f) >= widthPx / 2f
+                      val newYFraction = if (maxY > minY) ((offsetY - minY) / (maxY - minY)).coerceIn(0f, 1f) else 1f
+                      isEnd = newIsEnd
+                      yFraction = newYFraction
+                      prefs.setFabPosition(isLandscape, newIsEnd, newYFraction)
+                    } else if (!longClicked) {
+                      onClick()
+                    }
+                    break
+                  }
+
+                  val dragAmount = change.position - change.previousPosition
+                  totalDrag += dragAmount
+                  if (!dragging && totalDrag.getDistance() > touchSlop) {
+                    dragging = true
+                    isDragging = true
+                    longPressJob.cancel()
+                  }
+                  if (dragging) {
+                    change.consume()
+                    offsetX += dragAmount.x
+                    offsetY = (offsetY + dragAmount.y).coerceIn(minY, maxY)
+                  }
+                }
+              } finally {
+                longPressJob.cancel()
+              }
+            }
+          },
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          if (count > 0) {
+            BadgedBox(badge = { Badge { Text("$count") } }) {
+              Icon(Icons.Filled.SmartDisplay, if (count == 1) "1 video found" else "$count videos found")
+            }
+          } else {
+            BadgedBox(badge = { Badge { Text("!") } }) {
+              Icon(Icons.Filled.SmartDisplay, "Video detected")
+            }
           }
         }
       }

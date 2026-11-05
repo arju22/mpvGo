@@ -86,6 +86,14 @@ fun GoBrowserTopBarButton(onClick: () -> Unit) {
   }
 }
 
+/** Shared FAB insets so Home Play FAB, globe FAB, and Browser video FAB align pixel-perfectly. */
+object FabDefaults {
+  val OuterPadding = 16.dp
+  val MenuInset = 16.dp
+  val EdgeInset = OuterPadding + MenuInset // 32.dp
+  val BottomInset = OuterPadding + MenuInset // 32.dp
+}
+
 /** Bottom-left FAB on Home and Downloads, mirroring the Play FAB on the right. */
 @Composable
 fun GoBrowserFab(
@@ -101,8 +109,8 @@ fun GoBrowserFab(
     modifier =
       modifier.padding(
         // FloatingActionButtonMenu adds its own 16dp inset around the Play FAB; mirror it.
-        start = 16.dp + if (alignWithFabMenu) 16.dp else 0.dp,
-        bottom = 16.dp + MainFabBottomPadding + if (alignWithFabMenu) 16.dp else 0.dp,
+        start = if (alignWithFabMenu) FabDefaults.EdgeInset else FabDefaults.OuterPadding,
+        bottom = (if (alignWithFabMenu) FabDefaults.BottomInset else FabDefaults.OuterPadding) + MainFabBottomPadding,
       ),
   ) {
     FloatingActionButton(

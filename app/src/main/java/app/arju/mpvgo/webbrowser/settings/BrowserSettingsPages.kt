@@ -182,6 +182,7 @@ internal fun TabsPage() {
 
 @Composable
 internal fun VideoPage() {
+  val context = LocalContext.current
   val backstack = LocalBackStack.current
   val prefs = koinInject<BrowserPreferences>()
   val mode by prefs.videoTapMode.collectAsState()
@@ -216,6 +217,17 @@ internal fun VideoPage() {
       SwitchRow(prefs.addWebVideosToRecents, "Add web videos to Recents", "Not for private tabs")
       PreferenceDivider()
       SwitchRow(prefs.stopAutoplay, "Stop autoplay on sites", "Pause autoplay videos until tapped")
+      PreferenceDivider()
+      SwitchRow(prefs.floatingMediaButton, "Floating video button", "Show video counter button")
+      PreferenceDivider()
+      me.zhanghai.compose.preference.Preference(
+        title = { Text("Reset button position") },
+        summary = { Summary("Snap floating button back to bottom-right corner") },
+        onClick = {
+          prefs.resetFabPosition()
+          android.widget.Toast.makeText(context, "Button position reset", android.widget.Toast.LENGTH_SHORT).show()
+        },
+      )
     }
   }
 }
